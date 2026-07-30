@@ -394,7 +394,11 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
 </article>
 """
     desc = t.resume or f"{identifiant} — {t.titre}"
-    return page_html(titre=f"{identifiant} — {t.titre_court[:80]}",
+    # Éviter « Règlement Général — Règlement Général » : sur les textes de base,
+    # la référence et le nom court sont un seul et même libellé.
+    titre_onglet = (identifiant if identifiant == t.titre_court
+                    else f"{identifiant} — {t.titre_court[:80]}")
+    return page_html(titre=titre_onglet,
                      description=desc, corps=corps,
                      chemin=f"textes/{t.slug}/", base_url=base_url,
                      jsonld=jsonld, classe="page-texte")
@@ -835,6 +839,15 @@ INTROS = {
 
 def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                sortie: Path, base_url: str, inclure_pdf: bool = False) -> None:
+    # Le nom d'hôte est insensible à la casse, mais les URL canoniques ne
+    # doivent pas pour autant différer de l'adresse réellement servie : GitHub
+    # Pages sert en minuscules alors que le nom de compte peut porter des
+    # capitales. Le chemin, lui, reste sensible à la casse et n'est pas touché.
+    if "://" in base_url:
+        protocole, reste = base_url.split("://", 1)
+        hote, barre, chemin = reste.partition("/")
+        base_url = f"{protocole.lower()}://{hote.lower()}{barre}{chemin}"
+
     textes = charger(dossier_texte, manifeste)
     if not textes:
         raise SystemExit(f"Aucun JSON trouvé dans {dossier_texte}")
