@@ -45,7 +45,10 @@ def verifier(racine: Path) -> Rapport:
         r.erreur(f"dossier introuvable : {racine}")
         return r
 
-    pages = sorted(racine.rglob("*.html"))
+    # Seules les pages produites par le générateur sont contrôlées : un fichier
+    # déposé à la racine pour prouver la propriété du site auprès d'un moteur de
+    # recherche n'a ni titre ni structure, et n'a pas à en avoir.
+    pages = sorted(p for p in racine.rglob("*.html") if p.name == "index.html")
     r.stats["pages"] = len(pages)
     if not pages:
         r.erreur("aucune page HTML générée")

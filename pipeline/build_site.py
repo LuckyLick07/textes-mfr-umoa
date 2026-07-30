@@ -838,7 +838,8 @@ INTROS = {
 
 
 def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
-               sortie: Path, base_url: str, inclure_pdf: bool = False) -> None:
+               sortie: Path, base_url: str, inclure_pdf: bool = False,
+               racine_brute: Path | None = None) -> None:
     # Le nom d'hôte est insensible à la casse, mais les URL canoniques ne
     # doivent pas pour autant différer de l'adresse réellement servie : GitHub
     # Pages sert en minuscules alors que le nom de compte peut porter des
@@ -945,11 +946,24 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
 
     (sortie / ".nojekyll").write_text("", encoding="utf-8")
 
+    # Fichiers déposés tels quels à la racine du site : preuves de propriété
+    # exigées par les moteurs de recherche, fichier CNAME d'un domaine
+    # personnalisé, ads.txt… Ils ne sont pas générés, seulement recopiés.
+    recopies: list[str] = []
+    if racine_brute and racine_brute.is_dir():
+        for f in sorted(racine_brute.iterdir()):
+            if f.is_file() and not f.name.startswith(".") \
+                    and f.name.lower() != "readme.md":
+                shutil.copy(f, sortie / f.name)
+                recopies.append(f.name)
+
     taille = sum(f.stat().st_size for f in sortie.rglob("*") if f.is_file())
     print(f"Site généré dans {sortie}")
     print(f"  {len(textes)} documents, {len(urls)} URLs, "
           + (f"{copies} PDF copiés" if inclure_pdf
              else "PDF liés vers amf-umoa.org"))
+    if recopies:
+        print(f"  déposés à la racine : {', '.join(recopies)}")
     print(f"  index de recherche : "
           f"{(sortie / 'data' / 'index-recherche.json').stat().st_size // 1024} ko")
     print(f"  poids total : {taille / 1_048_576:.1f} Mo")
@@ -964,9 +978,11 @@ def main() -> int:
     ap.add_argument("--base-url", default="https://exemple.github.io/textes-mfr-umoa")
     ap.add_argument("--inclure-pdf", action="store_true",
                     help="copier les PDF dans le site (plusieurs centaines de Mo)")
+    ap.add_argument("--racine", default="racine",
+                    help="dossier de fichiers à déposer tels quels à la racine")
     a = ap.parse_args()
     construire(Path(a.texte), Path(a.manifeste), Path(a.pdf),
-               Path(a.sortie), a.base_url, a.inclure_pdf)
+               Path(a.sortie), a.base_url, a.inclure_pdf, Path(a.racine))
     return 0
 
 
