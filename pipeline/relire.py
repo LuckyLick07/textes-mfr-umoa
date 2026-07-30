@@ -29,8 +29,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import fitz
-from PIL import Image
+# PyMuPDF et Pillow ne servent qu'au rendu des pages en image. Les importer au
+# chargement du module ferait échouer « appliquer » et « suspects » là où ces
+# bibliothèques ne sont pas installées — typiquement l'intégration continue, qui
+# reconstruit le site sans jamais ouvrir un PDF. L'import est donc différé.
 
 
 # --------------------------------------------------------------------------
@@ -44,6 +46,15 @@ def extraire(pdf: Path, pages: list[int], sortie: Path, dpi: int = 190,
     `bandes` découpe la page en tranches horizontales : utile pour relire un
     texte dense sans perdre en résolution.
     """
+    try:
+        import fitz
+        from PIL import Image
+    except ImportError as exc:
+        raise SystemExit(
+            "Le rendu des pages exige PyMuPDF et Pillow : "
+            "pip install pymupdf pillow"
+        ) from exc
+
     sortie.mkdir(parents=True, exist_ok=True)
     doc = fitz.open(pdf)
     produits: list[Path] = []
