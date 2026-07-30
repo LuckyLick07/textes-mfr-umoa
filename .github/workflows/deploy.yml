@@ -1,0 +1,77 @@
+name: Construire et publier le recueil
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'texte/**'
+      - 'manifest.json'
+      - 'corrections/**'
+      - 'pipeline/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule publication à la fois ; les pushes suivants attendent leur tour
+# plutôt que d'annuler un déploiement en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Déterminer l'URL publique
+        id: url
+        run: |
+          if [ -n "${{ vars.BASE_URL }}" ]; then
+            echo "base=${{ vars.BASE_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Appliquer les corrections de relecture
+        run: |
+          shopt -s nullglob
+          for f in corrections/*.json; do
+            echo "→ $f"
+            python3 pipeline/relire.py appliquer "$f" --texte texte
+          done
+
+      - name: Générer le site
+        run: |
+          python3 pipeline/build_site.py \
+            --texte texte \
+            --manifeste manifest.json \
+            --sortie site \
+            --base-url "${{ steps.url.outputs.base }}"
+
+      - name: Vérifier le résultat
+        run: python3 pipeline/verifier.py site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publier:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

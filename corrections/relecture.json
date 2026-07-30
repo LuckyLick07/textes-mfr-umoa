@@ -1,0 +1,11 @@
+{
+  "_commentaire": "Corrections vérifiées page par page contre l'image du PDF original. Chaque entrée a été confrontée au document source avant d'être inscrite ici.",
+
+  "instruction_1000217": [
+    {
+      "page": 6,
+      "remplacer_page": "Instruction n° 81/AMF-UMOA/2025\n\nArticle 18 : Sanctions\n\nTout manquement aux obligations prévues par la présente Instruction est susceptible, conformément à la réglementation en vigueur, de sanctions, notamment pécuniaires, administratives et disciplinaires.\n\nArticle 19 : Entrée en vigueur\n\nLa présente Instruction entre en vigueur à compter de la date de sa signature.\n\nElle sera publiée partout où besoin sera.\n\nFait à Abidjan, le 05 SEP. 2025\n\nPour l’Autorité des Marchés Financiers de l’UMOA,\n\nLe Président\n\nBadanam PATOKI",
+      "_motif": "La reconnaissance lisait « le 05 SEP, 2075 » au lieu de 2025 — erreur de date dans un texte réglementaire. L'en-tête « tnstruction À | JAMF-UMOA/2025 » et le charabia issu du tampon rond de la Présidence sont également écartés. Corps des articles 18 et 19 vérifié mot pour mot sur l'image."
+    }
+  ]
+}

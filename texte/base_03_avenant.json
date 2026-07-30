@@ -1,0 +1,31 @@
+{
+ "fichier": "base_03_avenant.pdf",
+ "pages": 3,
+ "mode": "mixte",
+ "confiance_moyenne": 93.73,
+ "caracteres": 2295,
+ "pages_faibles": [],
+ "detail": [
+  {
+   "numero": 1,
+   "mode": "ocr",
+   "confiance": 93.73,
+   "caracteres": 108,
+   "texte": "AVENANT A LA CONVENTION\nPORTANT CREATION DU CONSEIL REGIONAL DE L’EPARGNE\nPUBLIQUE ET DES MARCHES FINANCIERS"
+  },
+  {
+   "numero": 2,
+   "mode": "natif",
+   "confiance": 100.0,
+   "caracteres": 1347,
+   "texte": "AVENANT A LA CONVENTION\nPORTANT CREATION DU CONSEIL REGIONAL\nDE L’EPARGNE PUBLIQUE ET DES MARCHES FINANCIERS\n\n\n\nLe Gouvernement de la République du Bénin,\n\nLe Gouvernement du Burkina Faso,\n\nLe Gouvernement de la République du Mali,\n\nLe Gouvernement de la République du Niger,\n\nLe Gouvernement de la République du Sénégal,\n\nLe Gouvernement de la République Togolaise,\n\nLe Gouvernement de la République de Guinée Bissau,\n\nPrenant en considération :\n\n-\nl’Acte de la conférence des Chefs d’Etat de l’UMOA portant adhésion de\nla République de Guinée-Bissau en date du 10 mai 1996,\n\n-\net l’Accord d’adhésion de la République de Guinée-Bissau à l’UMOA\nsigné le 29 janvier 1997,\n\n\nVU l’article 23, alinéa D du Traité constituant l’UMOA,\n\nVU l’article 76, alinéa D du Traité de l’UEMOA,\n\nVU la décision du Conseil des Ministres de l’UMOA du 03 juillet 1996 à\nDakar,\n\n-\nCONSCIENTS de la nécessité de renforcer leur coopération dans le\ndomaine financier,\n\n-\nCONSIDERANT que la création d’un Marché Financier à l’échelle\nrégionale est un moyen de mobiliser d’épargne intérieure et d’attirer des\ncapitaux extérieurs aux fins de financement de leurs investissements,\n\n-\nRECONNAISSANT la nécessité de renforcer leur politique monétaire\npar la mise en place de structures fondées sur les mécanismes de\nmarché pour favoriser l’allocation optimale de ressources,\n\n2"
+  },
+  {
+   "numero": 3,
+   "mode": "natif",
+   "confiance": 100.0,
+   "caracteres": 840,
+   "texte": "-\nPERSUADES que la sécurité des transactions financières requiert la\ncréation d’une structure de contrôle du Marché Financier au niveau\ncommunautaire,\n\n-\nCONVAINCUS que cette organisation communautaire contribuera à\nl’émergence d’un Marché Financier cohérent, efficace, utile au\ndéveloppement des économies et au renforcement de leur intégration,\n\n\nSONT CONVENUS DE CE QUI SUIT :\n\nArticle premier : La République de Guinée-Bissau adhère à la Convention\nportant création du Conseil Régional de l’Epargne Publique et des Marchés\nFinanciers du 03 juillet 1996.\n\nEn conséquence, elle souscrit à l’ensemble des engagements antérieurement\npris par les parties signataires.\n\nArticle 2 : Le présent avenant complète ladite convention dont les dispositions\nantérieures demeurent inchangées.\n\n\n\nFait à Dakar, le 03 juillet 1997\n\n\nen 3 exemplaires\n\n\n3"
+  }
+ ]
+}

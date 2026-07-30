@@ -1,0 +1,16 @@
+# Site généré : reconstruit par l'intégration continue
+site/
+
+# PDF sources : plusieurs centaines de Mo, récupérables par
+# telecharger-corpus-amf.sh depuis le site officiel
+pdf/
+*.pdf
+
+# Images de contrôle produites pendant la relecture
+controle/
+
+# Divers
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
