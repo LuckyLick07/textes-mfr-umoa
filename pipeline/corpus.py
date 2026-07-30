@@ -34,6 +34,10 @@ TYPES = {
     "instruction": ("Instruction", "instructions", "Instructions"),
     "circulaire": ("Circulaire", "circulaires", "Circulaires"),
     "decision": ("Décision", "decisions", "Décisions"),
+    # Actes du Conseil des Ministres de l'UEMOA et textes voisins que le site
+    # de l'Autorité mentionne sans les publier : sa rubrique « Autres actes »
+    # est vide. Ils entrent dans le recueil par le dossier « apports ».
+    "autre": ("Autre acte", "autres-actes", "Autres actes"),
     "rapport": ("Rapport", "rapports", "Rapports"),
 }
 
@@ -538,12 +542,21 @@ def analyser_titre(titre: str) -> tuple[str, str, str]:
     return reference, numero, annee
 
 
-def charger(dossier_texte: Path, manifeste: Path | None) -> list[Texte]:
+def charger(dossier_texte: Path, manifeste: Path | None,
+            apports: Path | None = None) -> list[Texte]:
     """Assemble les sorties OCR et les métadonnées en une liste de textes."""
     meta_par_id: dict[str, dict] = {}
     if manifeste and manifeste.exists():
         for it in json.loads(manifeste.read_text(encoding="utf-8")):
             meta_par_id[str(it.get("id"))] = it
+
+    # Métadonnées des documents apportés hors canal officiel, décrites par leur
+    # nom de fichier et consignées dans un fichier lisible et modifiable.
+    meta_apports: dict[str, dict] = {}
+    if apports is None:
+        apports = Path("apports/metadonnees.json")
+    if apports.exists():
+        meta_apports = json.loads(apports.read_text(encoding="utf-8"))
 
     # Le lexique se construit sur l'ensemble du corpus avant toute
     # structuration : c'est lui qui permet de trancher les césures ambiguës.
@@ -568,6 +581,30 @@ def charger(dossier_texte: Path, manifeste: Path | None) -> list[Texte]:
                 source_url=AMF + "/reglementation/convention",
                 pdf=ident + ".pdf", pdf_url=b["url"], rang=b["rang"],
             )
+        elif ident in meta_apports:
+            a = meta_apports[ident]
+            titre = a.get("titre") or ident
+            reference, numero_court, annee = analyser_titre(titre)
+            noyau = numero_court or reference
+            if noyau and annee and annee not in noyau:
+                noyau = f"{noyau}-{annee}"
+            type_cle = a.get("type") if a.get("type") in TYPES else "autre"
+            t = Texte(
+                identifiant=ident, type_cle=type_cle,
+                slug=a.get("slug") or (slugifier(f"{TYPES[type_cle][0]}-{noyau}")
+                                       if noyau else slugifier(titre)),
+                titre=titre, titre_court=titre,
+                numero=f"n° {reference}" if reference else "",
+                date_iso=(a.get("date") or "")[:10],
+                resume=" ".join((a.get("resume") or "").split()),
+                abroge=bool(a.get("abroge")),
+                reference=reference, annee_texte=annee or (a.get("date") or "")[:4],
+                tags=[x for x in (a.get("tags") or []) if x] or ["Autre acte"],
+                source_url=a.get("source") or "",
+                pdf=ident + ".pdf",
+                pdf_url=a.get("source") or "",
+            )
+
         else:
             partie = ident.split("_")
             type_cle = partie[0] if partie[0] in TYPES else "instruction"

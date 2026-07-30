@@ -1,0 +1,138 @@
+name: Veille mensuelle et apports
+
+# Deux déclencheurs, une même chaîne.
+#
+# Le premier jour de chaque mois, l'API de l'AMF-UMOA est interrogée pour
+# repérer les textes publiés depuis la dernière fois. Et à chaque dépôt de
+# fichier dans « apports », les documents obtenus hors canal officiel sont
+# intégrés. Dans les deux cas la reconnaissance optique, la reconstruction du
+# site et la publication s'enchaînent sans intervention.
+#
+# Ce workflow reconstruit et publie lui-même le site plutôt que de laisser
+# deploy.yml s'en charger : un envoi effectué par une action GitHub avec le
+# jeton par défaut ne déclenche volontairement aucun autre workflow, afin
+# d'éviter les boucles. Le déploiement doit donc se faire ici.
+
+on:
+  schedule:
+    # Le 1er de chaque mois à 06h00 UTC, soit 07h00 à Abidjan.
+    - cron: '0 6 1 * *'
+  push:
+    branches: [main]
+    paths:
+      - 'apports/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  veille:
+    runs-on: ubuntu-latest
+    outputs:
+      nombre: ${{ steps.bilan.outputs.nombre }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Déterminer l'URL publique
+        id: url
+        run: |
+          if [ -n "${{ vars.BASE_URL }}" ]; then
+            echo "base=${{ vars.BASE_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rechercher les textes nouveaux
+        run: |
+          python3 pipeline/veille.py detecter \
+            --texte texte --sortie nouveaux --journal journal --apports apports
+
+      - name: Compter ce qui est à traiter
+        id: bilan
+        run: |
+          n=$(ls -1 nouveaux/*.pdf 2>/dev/null | wc -l | tr -d ' ')
+          echo "nombre=$n" >> "$GITHUB_OUTPUT"
+          echo "$n document(s) à reconnaître" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Installer la reconnaissance optique française
+        if: steps.bilan.outputs.nombre != '0'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-fra
+          # Le modèle « best » est nettement plus fidèle que celui du paquet
+          # système ; on le substitue dans le répertoire de Tesseract, qui
+          # contient déjà les fichiers de configuration nécessaires.
+          SYS=$(dirname "$(find /usr/share/tesseract-ocr -name 'eng.traineddata' | head -1)")
+          sudo curl -sSL --retry 3 -o "$SYS/fra.traineddata" \
+            https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/main/fra.traineddata
+          echo "TESSDATA_PREFIX=$SYS" >> "$GITHUB_ENV"
+          python3 -m pip install --quiet pymupdf pillow numpy
+
+      - name: Reconnaître les nouveaux documents
+        if: steps.bilan.outputs.nombre != '0'
+        run: python3 pipeline/ocr_pipeline.py nouveaux -o texte -j 2
+
+      - name: Consigner la qualité obtenue
+        if: steps.bilan.outputs.nombre != '0'
+        run: |
+          python3 pipeline/veille.py finaliser \
+            --texte texte --sortie nouveaux --journal journal
+          cat journal/derniere-veille.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enregistrer les nouveautés dans le dépôt
+        run: |
+          git config user.name  "Veille automatique"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add texte manifest.json journal apports 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Aucune modification à enregistrer." >> "$GITHUB_STEP_SUMMARY"
+          else
+            git commit -m "Veille automatique du $(date +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Appliquer les corrections de relecture
+        run: |
+          shopt -s nullglob
+          for f in corrections/*.json; do
+            python3 pipeline/relire.py appliquer "$f" --texte texte
+          done
+
+      - name: Reconstruire le site
+        run: |
+          python3 pipeline/build_site.py \
+            --texte texte \
+            --manifeste manifest.json \
+            --sortie site \
+            --racine racine \
+            --base-url "${{ steps.url.outputs.base }}"
+
+      - name: Contrôler le résultat
+        run: python3 pipeline/verifier.py site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  publier:
+    needs: veille
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

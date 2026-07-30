@@ -90,8 +90,8 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
     presentes = SECTIONS_PRESENTES or set(TYPES)
     liens_nav = "\n      ".join(
         f'<a href="{racine}{TYPES[c][1]}/">{e(TYPES[c][2])}</a>'
-        for c in ("base", "instruction", "circulaire", "decision")
-        if c in presentes
+        for c in TYPES
+        if c != "rapport" and c in presentes
     )
     lien_rapports = (f' ·\n      <a href="{racine}rapports/">Rapports</a>'
                      if "rapport" in presentes else "")
@@ -497,8 +497,7 @@ def page_accueil(textes: list[Texte], base_url: str) -> str:
     <a class="vignette" href="{TYPES[k][1]}/">
       <span class="vignette-nombre">{len(par_type.get(k, []))}</span>
       <span class="vignette-nom">{e(TYPES[k][2])}</span>
-    </a>""" for k in ("base", "instruction", "circulaire", "decision", "rapport")
-                          if par_type.get(k))
+    </a>""" for k in TYPES if par_type.get(k))
 
     total_pages = sum(t.pages for t in textes)
     total_car = sum(len(t.texte_brut) for t in textes)
@@ -832,6 +831,10 @@ INTROS = {
     "decision": "Décisions du Conseil des Ministres de l'UMOA et de l'AMF-UMOA "
                 "portant sur l'organisation et le contrôle du marché financier "
                 "régional.",
+    "autre": "Actes émanant du Conseil des Ministres de l'UEMOA ou d'autres "
+             "organes de l'Union, qui régissent le marché financier régional sans "
+             "figurer sur le site de l'Autorité — sa rubrique « Autres actes » "
+             "est vide. Ils sont réunis ici à mesure qu'ils sont retrouvés.",
     "rapport": "Rapports annuels et études publiés par l'AMF-UMOA sur l'activité "
                "et le développement du marché financier régional.",
 }
@@ -888,7 +891,7 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                 encoding="utf-8")
 
     # Pages de listes
-    for cle in ("base", "instruction", "circulaire", "decision", "rapport"):
+    for cle in TYPES:
         if not par_type.get(cle):
             continue
         ordonne = sorted(par_type[cle],

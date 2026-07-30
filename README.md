@@ -169,6 +169,37 @@ portant adoption de la loi uniforme relative aux infractions boursières. Ces
 textes émanent du Conseil des Ministres de l'UEMOA et devront être recherchés
 auprès des sources de l'Union pour compléter le recueil.
 
+## Deux voies d'alimentation
+
+**La veille automatique.** Le workflow `.github/workflows/veille.yml` s'exécute
+le premier jour de chaque mois. Il interroge l'API de l'AMF-UMOA, compare la
+liste obtenue au contenu de `texte/`, télécharge les documents absents, en fait
+la reconnaissance, reconstruit le site et le republie — sans aucune
+intervention. Chaque passage laisse son compte rendu dans `journal/`, qui
+indique les textes trouvés, les échecs de téléchargement s'il y en a, et la
+qualité de reconnaissance obtenue document par document.
+
+Ce workflow reconstruit et publie lui-même le site au lieu de laisser
+`deploy.yml` s'en charger. La raison est une protection de GitHub : un envoi
+effectué par une action avec le jeton par défaut ne déclenche volontairement
+aucun autre workflow, afin d'éviter les boucles infinies. Le déploiement doit
+donc avoir lieu dans le même passage.
+
+**Les apports manuels.** Une part du corpus n'est pas publiée par l'Autorité :
+sa rubrique « Autres actes » est vide, alors que sa présentation du cadre légal
+renvoie à des règlements du Conseil des Ministres de l'UEMOA — titrisation,
+obligations sécurisées, titres islamiques — et à la loi uniforme relative aux
+infractions boursières. Ces textes ne peuvent entrer dans le recueil que par
+une voie parallèle.
+
+Déposer un PDF dans `apports/` suffit : le même workflow le prend en charge au
+prochain envoi. Le nom du fichier fait office de titre et permet d'en déduire
+le type et la référence, de sorte qu'un fichier correctement nommé produit une
+fiche correcte sans travail supplémentaire. `apports/README.md` détaille la
+convention, et `apports/metadonnees.json` permet de compléter après coup une
+date, un résumé ou l'adresse de la source. Ces documents forment la rubrique
+« Autres actes » du recueil.
+
 ## Publication
 
 Le workflow `.github/workflows/deploy.yml` construit et publie le site sur
