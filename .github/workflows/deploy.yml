@@ -8,6 +8,7 @@ on:
       - 'manifest.json'
       - 'corrections/**'
       - 'pipeline/**'
+      - 'racine/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
