@@ -391,7 +391,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
     {tags_html}
     {f'<p class="chapeau" itemprop="abstract">{e(t.resume)}</p>' if t.resume else ''}
     <div class="actions">
-      <a class="bouton" href="{lien_pdf}"{ext_pdf}>Consulter le PDF original</a>
+      <a class="bouton" href="{lien_pdf}"{ext_pdf}{'' if pdf_local else ' data-pdf-distant'}>Consulter le PDF original</a>
       <a class="bouton secondaire" href="../../data/{e(t.slug)}.txt">Texte brut</a>
     </div>
   </header>
@@ -424,6 +424,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
 {nav_html}
 </div>
 </article>
+<script src="../../assets/pdf.js" defer></script>
 """
     desc = t.resume or f"{identifiant} — {t.titre}"
     # Éviter « Règlement Général — Règlement Général » : sur les textes de base,
@@ -915,7 +916,8 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
 
     # Feuilles de style et script
     ici = Path(__file__).parent / "assets"
-    for nom in ("style.css", "recherche.js", "assistant.js", "favicon.svg"):
+    for nom in ("style.css", "recherche.js", "assistant.js", "pdf.js",
+                "favicon.svg"):
         if (ici / nom).exists():
             shutil.copy(ici / nom, sortie / "assets" / nom)
 
