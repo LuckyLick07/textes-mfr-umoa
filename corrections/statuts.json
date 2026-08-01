@@ -1,0 +1,54 @@
+{
+  "_commentaire": "Statuts d'abrogation attestés par les textes du recueil eux-mêmes. Le champ « abroge » de la source officielle n'est renseigné pour aucun document ; ce relevé reporte donc, sur chaque texte abrogé, la clause expresse d'un texte publié qui prononce son abrogation — jamais une appréciation propre. Chaque entrée a été confrontée au texte abrogeant : la clause citée figure dans « _clause » avec sa page. Les abrogations partielles ou implicites sont volontairement écartées, voir « _a_examiner ».",
+  "instruction_1000055": {
+    "par": "Instruction n° 67/2021, article 21",
+    "par_slug": "instruction-67-2021",
+    "_clause": "« Article 21 : Publication et date d’entrée en vigueur La présente Instruction, qui sera publiée partout où besoin sera, abroge l’Instruction 04/97 relative à l’agrément des Sociétés de Gestion et d’Intermédiation ainsi que toutes dispositions contraires, notamment celles de la Section | du Titre Ill  » (instruction_1000113, page 12)"
+  },
+  "instruction_1000057": {
+    "par": "Instruction n° 53/2017, article 7",
+    "par_slug": "instruction-53-2017",
+    "_clause": "« Article 7 : Publication et Prise d’effet La présente Instruction, qui sera publiée partout où besoin sera, abroge l’Instruction 06/97 relative à l’habilitation des Apporteurs d’Affaires, Conseils en Investissements Boursiers et Démarcheurs ainsi que toutes dispositions contraires et prend effet à co » (instruction_1000100, page 7)"
+  },
+  "instruction_1000065": {
+    "par": "Instruction n° 60/2020, article 24",
+    "par_slug": "instruction-60-2020",
+    "_clause": "« Article 24 : Date d’entrée en vigueur La présente Instruction, qui sera publiée partout où besoin sera, abroge l’Instruction N°19/99 relative au contrat de mandat de gestion de titres cotés ainsi que toutes dispositions contraires. » (instruction_1000105, page 11)"
+  },
+  "instruction_1000076": {
+    "par": "Instruction n° 47/2011, article 19",
+    "par_slug": "instruction-47-2011",
+    "_clause": "« CHAPITRE V : DISPOSITIONS FINALES Article 19 La présente Instruction qui sera publiée partout où besoin sera, abroge l’Instruction n°30/2001 du 27 mars 2001 et prend effet à compter de sa date de signature. » (instruction_1000092, page 6)"
+  },
+  "instruction_1000077": {
+    "par": "Instruction n° 58/2019, article 34",
+    "par_slug": "instruction-58-2019",
+    "_clause": "« Article 34 : Abrogation La présente Instruction abroge et remplace toutes autres dispositions antérieures, notamment l’Instruction n°31/2005 du 7 juin 2005. » (instruction_1000103, page 13)"
+  },
+  "instruction_1000080": {
+    "par": "Instruction n° 59/2019, article 33",
+    "par_slug": "instruction-59-2019",
+    "_clause": "« Article 33 : Abrogation La présente Instruction abroge et remplace les dispositions de l’Instruction 35/2008 relative à la lutte contre le blanchiment de capitaux au sein des acteurs agréés du Marché Financier Régional de l’UMOA ainsi que toutes dispositions antérieures et contraires traitant du mêm » (instruction_1000104, page 23)"
+  },
+  "instruction_1000087": {
+    "par": "Instruction n° 49/2016, article 12",
+    "par_slug": "instruction-49-2016",
+    "_clause": "« lnstruction n\" 4912016 Article 12 : Entrée en vigueur La présente Instruction, qui sera pubtiée partout où besoin sera, abroge l’fnstruction n\"4212010 du 31 août 2010 et entrera en vigueur à compter de [a date de sa signature. » (instruction_1000094, page 5)"
+  },
+  "instruction_1000094": {
+    "par": "Instruction n° 56/2018, article 16",
+    "par_slug": "instruction-56-2018",
+    "_clause": "« Instruction n° 56/2018 Article 16 : Entrée en vigueur La présente Instruction abroge l’Instruction n° 49/2016 et toutes dispositions antérieures contraires. » (instruction_1000101, page 6)"
+  },
+  "instruction_1000104": {
+    "par": "Instruction n° 59/2019/AMF-UMOA/REVISEE, article 42",
+    "par_slug": "instruction-59-2019-2",
+    "_clause": "« Article 42 : Entrée en vigueur La présente Instruction abroge et remplace les dispositions de l’Instruction 59/2019/CREPMF relative à la lutte contre le blanchiment de capitaux et le financement du terrorisme au sein des acteurs agréés du Marché Financier Régional de l’UMOA ainsi que toutes disposit » (instruction_1000207, page 31)"
+  },
+  "circulaire_1000125": {
+    "par": "Circulaire n° 001-2022",
+    "par_slug": "circulaire-001-2022",
+    "_clause": "« la présente Circulaire abroge la Circulaire n° 01-2018 relative aux modalités de scission des Fonds Communs de Placement ou de leur transformation en Société d’Inv » (circulaire_1000129, page 1)"
+  },
+  "_a_examiner": "Cas écartés en attendant vérification sur les scans : l'Instruction 63/2020 n'abroge que les dispositions contraires de la 36/2009 (abrogation partielle) ; l'Instruction 66/2021, article 92, abroge une liste de textes OPCVM à confronter aux documents du recueil ; l'Instruction 47/2011 est révisée par la 47/2011R sans clause nommant l'original ; la référence « Instruction n°34/2007 du 23 novembre 2009 » citée par la 42/2010 demande vérification (numérotation incohérente)."
+}

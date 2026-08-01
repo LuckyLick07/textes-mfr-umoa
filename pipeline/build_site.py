@@ -313,6 +313,30 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
         'textuelle du PDF d\'origine.</p>'
     )
 
+    # Abrogation attestée : la fiche cite le texte qui la prononce.
+    abroge_par_html = ""
+    if t.abroge_par:
+        cible = (f'<a href="../{e(t.abroge_par_slug)}/">{e(t.abroge_par)}</a>'
+                 if t.abroge_par_slug else e(t.abroge_par))
+        abroge_par_html = f'<div><dt>Abrogé par</dt><dd>{cible}</dd></div>'
+
+    # La note de statut distingue les deux origines possibles : la colonne
+    # « État » de la source, ou une clause expresse d'un texte publié.
+    if t.abroge_par:
+        note_statut = (
+            '<p class="ocr-detail">Le statut «&nbsp;Abrogé&nbsp;» est rapporté '
+            'ici parce qu\'un texte publié du recueil le prononce expressément '
+            '— voir la référence dans la fiche ci-dessus — et non d\'après la '
+            'colonne «&nbsp;État&nbsp;» de la source officielle, qui ne le '
+            'mentionne pas. Vérifiez l\'état exact du texte auprès de '
+            'l\'Autorité avant tout usage.</p>')
+    else:
+        note_statut = (
+            '<p class="ocr-detail">Le statut affiché reprend la seule '
+            'indication de la source officielle et ne constitue pas une '
+            'appréciation de la force juridique du texte&nbsp;: vérifiez '
+            'qu\'il n\'a pas été modifié ou abrogé depuis.</p>')
+
     refs_html = ""
     liens_refs = []
     for num in t.references.get("articles_rg", [])[:12]:
@@ -348,6 +372,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
     <h1 itemprop="name">{e(t.titre)}</h1>
     <dl class="fiche">
       <div><dt>Statut</dt><dd><span class="badge {cls_statut}">{lib_statut}</span></dd></div>
+      {abroge_par_html}
       {f'<div><dt>Référence</dt><dd>{e(t.numero)}</dd></div>' if t.numero else ''}
       {f'<div><dt>Année du texte</dt><dd>{e(t.annee)}</dd></div>' if t.annee else ''}
       {f'<div><dt>Mise en ligne</dt><dd><time datetime="{e(t.date_iso)}">{e(t.date_texte)}</time></dd></div>' if t.date_iso else ''}
@@ -369,10 +394,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
     <strong>Seul <a href="{lien_pdf}"{ext_pdf}>le PDF original</a> fait
     foi.</strong> Vérifiez systématiquement toute citation sur le document
     source avant tout usage professionnel.</p>
-    <p class="ocr-detail">Le statut affiché reprend la seule indication de la
-    source officielle et ne constitue pas une appréciation de la force
-    juridique du texte&nbsp;: vérifiez qu'il n'a pas été modifié ou abrogé
-    depuis.</p>
+    {note_statut}
     {fiabilite}
   </aside>
 {som_html}
@@ -427,7 +449,7 @@ def carte(t: Texte, prefixe: str = "../textes/") -> str:
 def page_liste(type_cle: str, textes: list[Texte], base_url: str,
                intro: str) -> str:
     lib, dossier, pluriel = TYPES[type_cle]
-    en_vigueur = [t for t in textes if not t.abroge]
+    non_abroges = [t for t in textes if not t.abroge]
     items = "\n".join(carte(t) for t in textes)
 
     liste_ld = {
@@ -459,7 +481,8 @@ def page_liste(type_cle: str, textes: list[Texte], base_url: str,
     <h1>{e(pluriel)}</h1>
     <p class="chapeau">{intro}</p>
     <p class="compte"><strong>{len(textes)}</strong> document{'s' if len(textes) > 1 else ''}
-    dans le recueil, dont <strong>{len(en_vigueur)}</strong> en vigueur.</p>
+    dans le recueil, dont <strong>{len(non_abroges)}</strong> non
+    abrogé{'s' if len(non_abroges) > 1 else ''}.</p>
   </header>
   <ul class="cartes">
 {items}
@@ -735,6 +758,13 @@ def page_apropos(textes: list[Texte], base_url: str) -> str:
     affiché comme non abrogé ici peut donc avoir été modifié ou remplacé depuis.
     Vérifiez toujours l'état d'un texte auprès de l'Autorité avant de vous en
     prévaloir.</p>
+    <p>Une exception, bornée&nbsp;: lorsqu'un texte publié du recueil prononce
+    lui-même, expressément, l'abrogation d'un autre — «&nbsp;la présente
+    Instruction abroge l'Instruction 04/97…&nbsp;» —, cette information est
+    reportée sur la fiche du texte abrogé, avec la référence de la disposition
+    qui la fonde. Le recueil ne déclare ainsi jamais une abrogation de son
+    propre chef&nbsp;: il ne fait que rapprocher deux textes publiés, et la
+    clause citée reste vérifiable en un clic.</p>
 
     <h2>Ce qui manque</h2>
     <p>La rubrique «&nbsp;Autres actes&nbsp;» du site officiel est actuellement

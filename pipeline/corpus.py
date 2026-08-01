@@ -470,6 +470,8 @@ class Texte:
     pages_faibles: list[int] = field(default_factory=list)
     references: dict = field(default_factory=dict)
     rang: int = 999
+    abroge_par: str = ""       # référence du texte publié qui prononce l'abrogation
+    abroge_par_slug: str = ""  # fiche de ce texte dans le recueil, si présente
 
     @property
     def annee(self) -> str:
@@ -543,7 +545,8 @@ def analyser_titre(titre: str) -> tuple[str, str, str]:
 
 
 def charger(dossier_texte: Path, manifeste: Path | None,
-            apports: Path | None = None) -> list[Texte]:
+            apports: Path | None = None,
+            statuts: Path | None = None) -> list[Texte]:
     """Assemble les sorties OCR et les métadonnées en une liste de textes."""
     meta_par_id: dict[str, dict] = {}
     if manifeste and manifeste.exists():
@@ -557,6 +560,22 @@ def charger(dossier_texte: Path, manifeste: Path | None,
         apports = Path("apports/metadonnees.json")
     if apports.exists():
         meta_apports = json.loads(apports.read_text(encoding="utf-8"))
+
+    # Statuts d'abrogation attestés. La source officielle publie un champ
+    # « abroge » mais ne le renseigne jamais ; certains textes du recueil
+    # prononcent pourtant expressément l'abrogation d'un autre. Ce relevé,
+    # vérifié clause par clause, reporte cette information sur le texte
+    # abrogé en citant la disposition qui la fonde — jamais une appréciation
+    # propre du recueil.
+    if statuts is None:
+        statuts = Path("corrections/statuts.json")
+    donnees_statuts: dict[str, dict] = {}
+    if statuts.exists():
+        donnees_statuts = {
+            k: v for k, v in
+            json.loads(statuts.read_text(encoding="utf-8")).items()
+            if not k.startswith("_") and isinstance(v, dict)
+        }
 
     # Le lexique se construit sur l'ensemble du corpus avant toute
     # structuration : c'est lui qui permet de trancher les césures ambiguës.
@@ -637,6 +656,11 @@ def charger(dossier_texte: Path, manifeste: Path | None,
                 pdf=ident + ".pdf",
                 pdf_url=URL_DOC.format(id=doc_id),
             )
+
+        if statut_impose := donnees_statuts.get(ident):
+            t.abroge = True
+            t.abroge_par = statut_impose.get("par", "")
+            t.abroge_par_slug = statut_impose.get("par_slug", "")
 
         t.pages = brut.get("pages", 0)
         t.confiance = brut.get("confiance_moyenne", 0.0)
