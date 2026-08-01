@@ -400,9 +400,9 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
     <p><strong>Avertissement.</strong> Le texte ci-dessous a été obtenu par
     reconnaissance optique de caractères à partir du document scanné publié par
     l'AMF-UMOA. Des erreurs de lecture résiduelles sont possibles.
-    <strong>Seul <a href="{lien_pdf}"{ext_pdf}>le PDF original</a> fait
-    foi.</strong> Vérifiez systématiquement toute citation sur le document
-    source avant tout usage professionnel.</p>
+    <strong>Seul le PDF original fait foi.</strong> Vérifiez
+    systématiquement toute citation sur le document source avant tout usage
+    professionnel.</p>
     {note_statut}
     {fiabilite}
   </aside>
