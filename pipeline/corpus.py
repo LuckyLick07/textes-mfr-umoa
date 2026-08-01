@@ -288,6 +288,109 @@ def _nettoyer_pointilles(ligne: str) -> str:
     return _POINTILLES.sub(remplacer, ligne)
 
 
+# --------------------------------------------------------------------------
+#  Résidus du papier à en-tête
+# --------------------------------------------------------------------------
+# Le bas de page du papier officiel — adresse du siège, téléphone, télécopie,
+# adresses électroniques — et le rappel du numéro de l'acte reviennent sur
+# chaque page scannée ; l'OCR les restitue au milieu du texte, où ils n'ont
+# aucun sens documentaire. Trois familles de règles les écartent. Elles sont
+# volontairement étroites : mieux vaut laisser passer un résidu que
+# retrancher une ligne du texte normatif — les visas (« Vu l'Instruction
+# n°… ») et les blocs de signature (« Fait à Abidjan, le… ») ne sont jamais
+# touchés.
+
+# Marqueurs d'adresse et de téléphone : jamais du texte normatif. L'OCR
+# défigure « Joseph ANOMA » de mille façons, mais le nom de rue, l'indicatif
+# ivoirien et la boîte postale restent reconnaissables.
+_CONTACT_FORT = re.compile(
+    r"\banoma\b|joseph\s+anoma|abidjan\s*[-–]?\s*plateau|plateau\s+aven"
+    r"|\b[b3]pm\s*[‘']?\s*[i1l]?8|b\.?\s*p\.?\s*:?\s*1878"
+    r"|[-+({\[]\s*[-+]?\s*2\s*2\s*5\s*[)}\]]|\(\s*225\s*\)"
+    r"|\b(?:te[l1]|tél|téll|té)\s*\.?\s*:|\bfax\s*\.?\s*:",
+    re.IGNORECASE)
+# Adresses web et courriels : résidu probable, sauf au sein d'une phrase
+# rédigée qui renvoie le lecteur au site officiel.
+_CONTACT_WEB = re.compile(
+    r"@|www\s*\.|crepmf\s*\.\s*org|amf[\s-]?umoa\s*\.\s*org", re.IGNORECASE)
+_PHRASE = re.compile(
+    r"\b(sont|est|sera|seront|peut|peuvent|doivent|doit|publi|disponibl"
+    r"|consult|figur|adress|transm)", re.IGNORECASE)
+_COMPTEUR = re.compile(
+    r"^\W{0,4}(?:page\s+)?\d{1,3}\s*(?:/|sur)\s*\d{1,3}\W{0,4}$",
+    re.IGNORECASE)
+# Rappel isolé du numéro de l'acte : « Instruction n° 67/CREPMF/2021 » seul
+# sur sa ligne. La forme rédigée (« relative à… », « portant… ») est du
+# texte et reste ; la citation en visa commence par « Vu » et reste aussi.
+_RAPPEL_ACTE = re.compile(
+    r"^\W{0,8}[il1t]?(?:nstruction|circulaire|d[ée]cision)s?\s*n\W{0,4}\S",
+    re.IGNORECASE)
+_RAPPEL_REDIGE = re.compile(
+    r"relative|relatif|portant|modifiant|fixant|abroge|vis[ée]e", re.IGNORECASE)
+
+_GENRES_STRUCTURE = (_TITRE_MAJEUR, _SECTION, _ARTICLE, _PUCE, _NUMEROTE)
+
+
+def _signature_ligne(ligne: str) -> str:
+    plate = re.sub(r"\d+", "#", sans_accent(ligne).lower())
+    return re.sub(r"[^a-z#]+", " ", plate).strip()
+
+
+def epurer_residus(pages: list[dict]) -> tuple[list[dict], int]:
+    """Écarte les résidus d'en-tête et de pied de page.
+
+    Une ligne est retirée si elle relève des coordonnées du papier officiel,
+    d'un compteur de pages, d'un rappel isolé du numéro de l'acte, ou si sa
+    forme — chiffres neutralisés — revient en bord de page sur au moins
+    trois pages du document : c'est la définition d'un élément de gabarit.
+    """
+    decoupes = [p.get("texte", "").split("\n") for p in pages]
+
+    # Relevé des lignes de bord de page, chiffres neutralisés, pour repérer
+    # les éléments de gabarit répétés que les motifs fixes ne couvrent pas.
+    frequences: dict[str, set[int]] = {}
+    for num, lignes in enumerate(decoupes):
+        pleines = [l for l in lignes if l.strip()]
+        for l in pleines[:3] + pleines[-5:]:
+            if len(l) > 80 or any(m.match(l) for m in _GENRES_STRUCTURE):
+                continue
+            frequences.setdefault(_signature_ligne(l), set()).add(num)
+
+    def est_residu(ligne: str, en_bord: bool) -> bool:
+        s = ligne.strip()
+        if not s:
+            return False
+        if len(s) < 200 and _CONTACT_FORT.search(s):
+            return True
+        if len(s) < 120 and _CONTACT_WEB.search(s) and not _PHRASE.search(s):
+            return True
+        if _COMPTEUR.match(s):
+            return True
+        if (len(s) <= 90 and _RAPPEL_ACTE.match(s)
+                and re.search(r"\d", s) and not _RAPPEL_REDIGE.search(s)
+                and not _PUCE.match(s) and not _NUMEROTE.match(s)):
+            return True
+        if (en_bord and len(s) <= 80
+                and not any(m.match(s) for m in _GENRES_STRUCTURE)
+                and len(frequences.get(_signature_ligne(s), ())) >= 3):
+            return True
+        return False
+
+    retires = 0
+    resultat: list[dict] = []
+    for p, lignes in zip(pages, decoupes):
+        indices_pleines = [i for i, l in enumerate(lignes) if l.strip()]
+        bords = set(indices_pleines[:3] + indices_pleines[-5:])
+        gardees = []
+        for i, l in enumerate(lignes):
+            if l.strip() and est_residu(l, i in bords):
+                retires += 1
+            else:
+                gardees.append(l)
+        resultat.append(dict(p, texte="\n".join(gardees)))
+    return resultat, retires
+
+
 @dataclass
 class Bloc:
     genre: str            # titre | section | article | paragraphe | puce | numerote
@@ -305,6 +408,20 @@ def _est_fin_de_paragraphe(ligne: str, suivante: str, largeur: float) -> bool:
         return len(ligne) < largeur * 0.85
     # Ligne nettement courte : probable fin de bloc.
     return len(ligne) < largeur * 0.55
+
+
+def _romain(brut: str) -> str:
+    """Répare la confusion I/l/1 des numéros romains lus par l'OCR.
+
+    « TITRE Il » est presque toujours « TITRE II » : le l minuscule et le
+    chiffre 1 se substituent au I dans les petites capitales. La retouche ne
+    s'applique qu'aux jetons mêlant lettres romaines et caractères confus —
+    un numéro purement arabe (« TITRE 2 ») reste tel quel.
+    """
+    t = brut.strip()
+    if re.fullmatch(r"[IVXLCivxlc1l]+", t) and re.search(r"[IVXCivxcl]", t):
+        t = t.replace("1", "I").replace("l", "I")
+    return t.upper()
 
 
 def structurer(pages: list[dict]) -> list[Bloc]:
@@ -345,7 +462,7 @@ def structurer(pages: list[dict]) -> list[Bloc]:
 
             if m := _TITRE_MAJEUR.match(ligne):
                 vider()
-                mot, num, reste = m.group(1).upper(), m.group(2).upper(), m.group(3)
+                mot, num, reste = m.group(1).upper(), _romain(m.group(2)), m.group(3)
                 intitule = reste.strip()
                 # L'intitulé peut déborder sur la ligne suivante.
                 if not intitule and suivante.strip() and len(suivante) < largeur:
@@ -362,7 +479,8 @@ def structurer(pages: list[dict]) -> list[Bloc]:
                 if not intitule and suivante.strip() and len(suivante) < largeur:
                     intitule = suivante.strip()
                     i += 1
-                blocs.append(Bloc("section", intitule, f"Section {m.group(1)}",
+                blocs.append(Bloc("section", intitule,
+                                  f"Section {_romain(m.group(1))}",
                                   p.get("numero", 0)))
                 i += 1
                 continue
@@ -472,6 +590,7 @@ class Texte:
     rang: int = 999
     abroge_par: str = ""       # référence du texte publié qui prononce l'abrogation
     abroge_par_slug: str = ""  # fiche de ce texte dans le recueil, si présente
+    residus_retires: int = 0   # lignes de gabarit écartées par l'épuration
 
     @property
     def annee(self) -> str:
@@ -669,6 +788,7 @@ def charger(dossier_texte: Path, manifeste: Path | None,
         pages = [dict(p, texte=reparer_composes(p.get("texte", ""),
                                                 frequences, composes))
                  for p in brut.get("detail", [])]
+        pages, t.residus_retires = epurer_residus(pages)
         t.blocs = structurer(pages)
         t.references = detecter_references(t.texte_brut)
         textes.append(t)
