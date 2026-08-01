@@ -23,6 +23,8 @@ from datetime import date
 from pathlib import Path
 
 from corpus import TYPES, Texte, charger, date_francaise, sans_accent
+from illustrations import (EMBLEME, bande_guillochee, icone, illustration_heros,
+                           sceau_rosette)
 
 SITE_NOM = "Textes du Marché Financier Régional de l’UMOA"
 SITE_COURT = "Textes MFR-UMOA"
@@ -121,8 +123,11 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
 <header class="entete">
   <div class="conteneur entete-corps">
     <a class="marque" href="{racine or './'}">
-      <span class="marque-titre">{e(SITE_COURT)}</span>
-      <span class="marque-sous">Corpus réglementaire consultable</span>
+      {EMBLEME}
+      <span class="marque-texte">
+        <span class="marque-titre">{e(SITE_COURT)}</span>
+        <span class="marque-sous">Corpus réglementaire consultable</span>
+      </span>
     </a>
     <nav class="nav" aria-label="Navigation principale">
       {liens_nav}
@@ -135,18 +140,22 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
 </main>
 <script src="{racine}assets/assistant.js" defer></script>
 <footer class="pied">
-  <div class="conteneur">
-    <p class="pied-avis"><strong>Site non officiel.</strong> Ce recueil est une
-    initiative indépendante destinée à rendre consultables et indexables des
-    textes publics aujourd'hui diffusés sous forme d'images scannées.
-    Il n'émane pas de l'AMF-UMOA et n'a aucune valeur juridique&nbsp;: seuls les
-    documents originaux publiés par l'Autorité font foi.</p>
-    <p class="pied-liens">
-      <a href="{racine}a-propos/">À propos et méthode</a> ·
-      <a href="{racine}chronologie/">Chronologie</a>{lien_rapports} ·
-      <a href="https://www.amf-umoa.org/" rel="noopener external">Site officiel de l'AMF-UMOA</a>
-    </p>
-    <p class="pied-mention">Source des documents&nbsp;: {e(AUTORITE)} · Recueil mis à jour en {an}</p>
+  {bande_guillochee("guilloche-pied")}
+  <div class="conteneur pied-corps">
+    <div class="pied-textes">
+      <p class="pied-avis"><strong>Site non officiel.</strong> Ce recueil est une
+      initiative indépendante destinée à rendre consultables et indexables des
+      textes publics aujourd'hui diffusés sous forme d'images scannées.
+      Il n'émane pas de l'AMF-UMOA et n'a aucune valeur juridique&nbsp;: seuls les
+      documents originaux publiés par l'Autorité font foi.</p>
+      <p class="pied-liens">
+        <a href="{racine}a-propos/">À propos et méthode</a> ·
+        <a href="{racine}chronologie/">Chronologie</a>{lien_rapports} ·
+        <a href="https://www.amf-umoa.org/" rel="noopener external">Site officiel de l'AMF-UMOA</a>
+      </p>
+      <p class="pied-mention">Source des documents&nbsp;: {e(AUTORITE)} · Recueil mis à jour en {an}</p>
+    </div>
+    {sceau_rosette(88)}
   </div>
 </footer>
 </body>
@@ -368,7 +377,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
   </nav>
 
   <header class="texte-entete">
-    <p class="surtitre">{e(t.libelle_type)}{(' · ' + e(t.numero)) if t.numero else ''}</p>
+    <p class="surtitre">{icone(t.type_cle, 15)}{e(t.libelle_type)}{(' · ' + e(t.numero)) if t.numero else ''}</p>
     <h1 itemprop="name">{e(t.titre)}</h1>
     <dl class="fiche">
       <div><dt>Statut</dt><dd><span class="badge {cls_statut}">{lib_statut}</span></dd></div>
@@ -437,7 +446,7 @@ def carte(t: Texte, prefixe: str = "../textes/") -> str:
     return f"""
 <li class="carte">
   <a class="carte-lien" href="{prefixe}{t.slug}/">
-    <span class="carte-type">{e(t.libelle_type)}</span>
+    <span class="carte-type">{icone(t.type_cle, 14)}{e(t.libelle_type)}</span>
     <span class="badge {cls} petit">{lib}</span>
     <h3>{e(t.titre_court)}</h3>
     <p class="carte-meta">{e(meta)}</p>
@@ -478,6 +487,7 @@ def page_liste(type_cle: str, textes: list[Texte], base_url: str,
     <span aria-current="page">{e(pluriel)}</span>
   </nav>
   <header class="section-entete">
+    <span class="section-icone">{icone(type_cle)}</span>
     <h1>{e(pluriel)}</h1>
     <p class="chapeau">{intro}</p>
     <p class="compte"><strong>{len(textes)}</strong> document{'s' if len(textes) > 1 else ''}
@@ -519,6 +529,7 @@ def page_accueil(textes: list[Texte], base_url: str) -> str:
 
     vignettes = "\n".join(f"""
     <a class="vignette" href="{TYPES[k][1]}/">
+      <span class="vignette-icone">{icone(k)}</span>
       <span class="vignette-nombre">{len(par_type.get(k, []))}</span>
       <span class="vignette-nom">{e(TYPES[k][2])}</span>
     </a>""" for k in TYPES if par_type.get(k))
@@ -548,20 +559,26 @@ def page_accueil(textes: list[Texte], base_url: str) -> str:
     corps = f"""
 <section class="heros">
   <div class="conteneur">
-    <h1>{e(SITE_NOM)}</h1>
-    <p class="heros-texte">Les textes qui régissent le marché financier régional
-    de l'UMOA sont publics, mais diffusés sous forme de documents scannés non
-    indexés&nbsp;: introuvables par les moteurs de recherche, impossibles à
-    parcourir autrement qu'en ouvrant les fichiers un par un. Ce recueil les
-    rend lisibles, cherchables et citables.</p>
-    <form class="heros-recherche" action="recherche/" method="get" role="search">
-      <label for="q-accueil" class="visuellement-masque">Rechercher dans les textes</label>
-      <input type="search" id="q-accueil" name="q" placeholder="Rechercher : agrément SGI, capital minimum, article 37…" autocomplete="off">
-      <button type="submit">Rechercher</button>
-    </form>
-    <p class="heros-chiffres">{len(textes)} documents · {pages_fr} pages ·
-    {car_fr} caractères de texte recherchable</p>
+    <div class="heros-col">
+      <h1>{e(SITE_NOM)}</h1>
+      <p class="heros-texte">Les textes qui régissent le marché financier régional
+      de l'UMOA sont publics, mais diffusés sous forme de documents scannés non
+      indexés&nbsp;: introuvables par les moteurs de recherche, impossibles à
+      parcourir autrement qu'en ouvrant les fichiers un par un. Ce recueil les
+      rend lisibles, cherchables et citables.</p>
+      <form class="heros-recherche" action="recherche/" method="get" role="search">
+        <label for="q-accueil" class="visuellement-masque">Rechercher dans les textes</label>
+        <input type="search" id="q-accueil" name="q" placeholder="Rechercher : agrément SGI, capital minimum, article 37…" autocomplete="off">
+        <button type="submit">Rechercher</button>
+      </form>
+      <p class="heros-chiffres">{len(textes)} documents · {pages_fr} pages ·
+      {car_fr} caractères de texte recherchable</p>
+    </div>
+    <div class="heros-visuel">
+{illustration_heros()}
+    </div>
   </div>
+  {bande_guillochee("guilloche-heros")}
 </section>
 
 <div class="conteneur">
@@ -636,6 +653,7 @@ def page_chronologie(textes: list[Texte], base_url: str) -> str:
     <span aria-current="page">Chronologie</span>
   </nav>
   <header class="section-entete">
+    <span class="section-icone">{icone("chronologie")}</span>
     <h1>Chronologie du corpus</h1>
     <p class="chapeau">L'ensemble des textes du recueil classés par année
     d'adoption ou de publication, du plus récent au plus ancien.</p>
@@ -658,6 +676,7 @@ def page_recherche(base_url: str) -> str:
     <span aria-current="page">Recherche</span>
   </nav>
   <header class="section-entete">
+    <span class="section-icone">__ICONE_RECHERCHE__</span>
     <h1>Rechercher dans le corpus</h1>
     <p class="chapeau">La recherche porte sur le texte intégral de tous les
     documents du recueil, y compris le contenu des pages scannées.</p>
@@ -685,6 +704,7 @@ def page_recherche(base_url: str) -> str:
 </div>
 <script src="../assets/recherche.js" defer></script>
 """
+    corps = corps.replace("__ICONE_RECHERCHE__", icone("recherche"))
     return page_html(titre=f"Recherche plein texte — {SITE_COURT}",
                      description="Recherche plein texte dans les instructions, "
                                  "circulaires, décisions et textes de base de "
@@ -705,6 +725,7 @@ def page_apropos(textes: list[Texte], base_url: str) -> str:
     <span aria-current="page">À propos</span>
   </nav>
   <header class="section-entete">
+    <span class="section-icone">{icone("apropos")}</span>
     <h1>À propos de ce recueil</h1>
   </header>
 

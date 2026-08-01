@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
      aria-label="Textes du Marché Financier Régional de l'UMOA">
-  <rect width="64" height="64" rx="10" fill="#1c4f7c"/>
+  <rect width="64" height="64" rx="12" fill="#16456f"/>
   <!-- Feuillet réglementaire : un texte devenu lisible -->
   <path d="M18 12h22l8 8v32a2 2 0 0 1-2 2H20a2 2 0 0 1-2-2V14a2 2 0 0 1 2-2z"
-        fill="#fbfaf7"/>
-  <path d="M40 12l8 8h-8z" fill="#cbd3db"/>
-  <g fill="#1c4f7c">
-    <rect x="23" y="27" width="18" height="2.6" rx="1.3"/>
-    <rect x="23" y="34" width="18" height="2.6" rx="1.3"/>
-    <rect x="23" y="41" width="12" height="2.6" rx="1.3"/>
+        fill="#ffffff"/>
+  <path d="M40 12l8 8h-8z" fill="#c9d9e7"/>
+  <g fill="none" stroke="#16456f" stroke-width="2.6" stroke-linecap="round">
+    <path d="M24 28.5h16M24 35.5h16M24 42.5h10"/>
   </g>
-  <rect x="23" y="19" width="9" height="2.6" rx="1.3" fill="#2b6fa8"/>
+  <path d="M24 20.5h9" fill="none" stroke="#2b6fa8" stroke-width="3.2" stroke-linecap="round"/>
 </svg>

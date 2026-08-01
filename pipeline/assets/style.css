@@ -16,14 +16,16 @@
   --accent:       #1c4f7c;
   --accent-clair: #e8f0f7;
   --accent-vif:   #2b6fa8;
+  --accent-nuit:  #14395e;
+  --accent-doux:  #8fb0cc;
+  --accent-voile: #f3f8fc;
+  --guilloche:    #c9d9e7;
+  --embleme-fond: #16456f;
   --vert:         #1d6b44;
   --vert-fond:    #e6f4ec;
   --vert-encre:   #14603c;
   --rouge-fond:   #fdeceb;
   --rouge-encre:  #94322b;
-  --ambre-fond:   #fdf6e3;
-  --ambre-trait:  #e8d9a8;
-  --ambre-encre:  #6b5418;
 
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
            Georgia, "Times New Roman", serif;
@@ -86,7 +88,17 @@ a:hover { color: var(--accent-vif); }
   gap: 1.5rem; min-height: 64px; flex-wrap: wrap;
 }
 
-.marque { text-decoration: none; color: var(--encre); display: block; padding: .55rem 0; }
+.marque {
+  text-decoration: none; color: var(--encre);
+  display: flex; align-items: center; gap: .7rem; padding: .55rem 0;
+}
+.embleme { flex: none; display: block; }
+.embleme .emb-fond   { fill: var(--embleme-fond); }
+.embleme .emb-page   { fill: #ffffff; }
+.embleme .emb-coin   { fill: #c9d9e7; }
+.embleme .emb-lignes { fill: none; stroke: #16456f; stroke-width: 1.5; stroke-linecap: round; }
+.embleme .emb-titre  { fill: none; stroke: #2b6fa8; stroke-width: 1.9; stroke-linecap: round; }
+.marque-texte { display: block; }
 .marque-titre {
   display: block; font-family: var(--serif); font-size: 1.16rem;
   font-weight: 600; letter-spacing: -.01em; line-height: 1.2;
@@ -121,14 +133,65 @@ a:hover { color: var(--accent-vif); }
 /* --- Accueil ------------------------------------------------------------ */
 
 .heros {
-  background: linear-gradient(178deg, var(--papier-creme), var(--papier));
+  position: relative;
+  background: linear-gradient(178deg, var(--accent-voile), var(--papier));
   border-bottom: 1px solid var(--trait);
-  padding: 3.4rem 0 3rem;
+  padding: 3.4rem 0 3.4rem;
+  overflow: hidden;
+}
+.heros .conteneur {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 425px);
+  gap: 3rem; align-items: center;
 }
 .heros h1 {
   font-family: var(--serif); font-size: clamp(1.85rem, 4.6vw, 2.85rem);
   line-height: 1.15; letter-spacing: -.02em; margin: 0 0 1rem;
-  max-width: 30ch;
+  max-width: 30ch; color: var(--accent-nuit);
+}
+.heros-visuel { min-width: 0; }
+.heros-illu { display: block; width: 100%; height: auto; }
+.heros > .guilloche { position: absolute; left: 0; right: 0; bottom: 0; }
+
+/* --- Illustration du héros (traits fins) -------------------------------- */
+
+.illu-rosette path { fill: none; stroke: var(--guilloche); stroke-width: .7; opacity: .6; }
+.illu-fin        { fill: none; stroke: var(--accent-doux); stroke-width: 1.5; stroke-linecap: round; }
+.illu-moy        { fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; }
+.illu-aire       { fill: var(--accent); opacity: .05; }
+.illu-courbe     { fill: none; stroke: var(--accent-vif); stroke-width: 2.2;
+                   stroke-linecap: round; stroke-linejoin: round; }
+.illu-noeud      { fill: var(--papier); stroke: var(--accent-vif); stroke-width: 1.8; }
+.illu-feuille    { fill: var(--papier); stroke: var(--accent-doux); stroke-width: 1.5; }
+.illu-texte      { fill: none; stroke: var(--accent-doux); stroke-width: 1.6; stroke-linecap: round; }
+.illu-cachet     { fill: var(--accent-clair); stroke: var(--accent); stroke-width: 1.4; }
+.illu-cachet-fin { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-linejoin: round; }
+.illu-etoile     { fill: none; stroke: var(--accent-doux); stroke-width: 1.5;
+                   stroke-linecap: round; opacity: .75; }
+
+/* --- Guilloché et sceau -------------------------------------------------- */
+
+.guilloche { display: block; }
+.guilloche path { fill: none; stroke-width: .9; }
+.gui-1 { stroke: var(--guilloche); }
+.gui-2 { stroke: var(--accent-doux); opacity: .7; }
+.gui-3 { stroke: var(--guilloche); opacity: .55; }
+
+.sceau circle, .sceau path { fill: none; stroke: var(--accent-doux); stroke-width: .7; }
+.sceau circle:first-of-type { stroke-width: 1.1; }
+.sceau circle:last-of-type  { fill: var(--accent-doux); stroke: none; }
+
+/* --- Icônes de rubrique -------------------------------------------------- */
+
+.icone { flex: none; vertical-align: -.18em; }
+.vignette-icone {
+  display: flex; justify-content: center; color: var(--accent);
+  margin-bottom: .6rem;
+}
+.section-icone {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 47px; height: 47px; border-radius: 12px;
+  background: var(--accent-clair); color: var(--accent);
+  border: 1px solid var(--guilloche);
 }
 .heros-texte { max-width: 62ch; color: var(--encre-douce); font-size: 1.04rem; margin: 0 0 1.9rem; }
 
@@ -158,7 +221,8 @@ a:hover { color: var(--accent-vif); }
   border-radius: var(--rayon); background: var(--papier);
   transition: border-color .15s, transform .15s;
 }
-.vignette:hover { border-color: var(--accent); transform: translateY(-2px); }
+.vignette:hover { border-color: var(--accent); transform: translateY(-2px);
+  background: var(--accent-voile); }
 .vignette-nombre {
   display: block; font-family: var(--serif); font-size: 1.9rem;
   font-weight: 600; color: var(--accent); line-height: 1;
@@ -174,7 +238,7 @@ a:hover { color: var(--accent-vif); }
   margin: 0 0 .5rem; padding-bottom: .6rem; border-bottom: 2px solid var(--trait);
 }
 .bloc-accueil.encadre {
-  background: var(--papier-creme); border: 1px solid var(--trait);
+  background: var(--accent-voile); border: 1px solid var(--trait);
   border-radius: var(--rayon); padding: 1.8rem;
 }
 .bloc-accueil.encadre h2 { border: 0; padding: 0; }
@@ -216,6 +280,7 @@ a:hover { color: var(--accent-vif); }
 }
 .carte-lien:hover { border-color: var(--trait-fort); box-shadow: var(--ombre); }
 .carte-type {
+  display: inline-flex; align-items: center; gap: .4rem;
   font-size: .7rem; text-transform: uppercase; letter-spacing: .07em;
   color: var(--accent); font-weight: 600;
 }
@@ -250,6 +315,7 @@ a:hover { color: var(--accent-vif); }
 
 .texte-entete { padding: .8rem 0 1.6rem; border-bottom: 2px solid var(--trait); }
 .surtitre {
+  display: inline-flex; align-items: center; gap: .45rem;
   font-size: .76rem; text-transform: uppercase; letter-spacing: .09em;
   color: var(--accent); font-weight: 700; margin: 0 0 .55rem;
 }
@@ -283,17 +349,20 @@ a:hover { color: var(--accent-vif); }
 .bouton.secondaire:hover { background: var(--accent-clair); }
 
 .avis {
-  background: var(--ambre-fond); border: 1px solid var(--ambre-trait);
-  border-left: 4px solid #c8a53e; border-radius: var(--rayon);
-  padding: 1.05rem 1.25rem; margin: 1.8rem 0; font-size: .89rem;
-  color: var(--ambre-encre); max-width: var(--texte);
+  max-width: var(--texte); margin: 2.1rem 0; padding: 1rem 0 1.1rem;
+  border-top: 1px solid var(--trait-fort);
+  border-bottom: 1px solid var(--trait-fort);
+  font-family: var(--serif); font-style: italic;
+  font-size: .95rem; line-height: 1.62; color: var(--encre-douce);
 }
 .avis p { margin: 0 0 .5rem; }
 .avis p:last-child { margin: 0; }
+.avis strong { font-style: normal; font-weight: 600; color: var(--encre); }
+.avis a { color: var(--accent); }
 .ocr-detail { font-size: .84rem; opacity: .88; }
 
 .sommaire {
-  background: var(--papier-creme); border: 1px solid var(--trait);
+  background: var(--accent-voile); border: 1px solid var(--trait);
   border-radius: var(--rayon); padding: 1.2rem 1.4rem; margin: 1.8rem 0;
   max-width: var(--texte);
 }
@@ -375,7 +444,7 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
   border: 1px solid var(--trait); border-radius: var(--rayon);
   padding: .9rem 1.05rem; font-size: .88rem; line-height: 1.4;
 }
-.voisin:hover { border-color: var(--accent); background: var(--papier-creme); }
+.voisin:hover { border-color: var(--accent); background: var(--accent-voile); }
 .voisin span {
   display: block; font-size: .7rem; text-transform: uppercase;
   letter-spacing: .07em; color: var(--encre-tenue); margin-bottom: .3rem;
@@ -478,9 +547,17 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
 /* --- Pied de page ------------------------------------------------------- */
 
 .pied {
-  background: var(--papier-creme); border-top: 1px solid var(--trait);
-  padding: 2.4rem 0 3rem; margin-top: 3rem; font-size: .86rem;
+  position: relative;
+  background: var(--accent-voile); border-top: 1px solid var(--trait);
+  padding: 2.7rem 0 3rem; margin-top: 3rem; font-size: .86rem;
 }
+.pied > .guilloche { position: absolute; left: 0; right: 0; top: 0; opacity: .5; }
+.pied-corps {
+  display: flex; gap: 2.5rem; align-items: center;
+  justify-content: space-between; flex-wrap: wrap;
+}
+.pied-textes { flex: 1 1 34rem; min-width: 0; }
+.pied .sceau { flex: none; opacity: .9; }
 .pied-avis {
   max-width: 76ch; color: var(--encre-douce); margin: 0 0 1.1rem;
   line-height: 1.6;
@@ -492,9 +569,15 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
 
 /* --- Adaptations ------------------------------------------------------- */
 
+@media (max-width: 960px) {
+  .heros .conteneur { grid-template-columns: 1fr; }
+  .heros-visuel { display: none; }
+}
+
 @media (max-width: 780px) {
   body { font-size: 16px; }
   .entete-corps { min-height: 56px; }
+  .embleme { width: 28px; height: 28px; }
   .nav { width: 100%; overflow-x: auto; padding-bottom: .4rem; }
   .nav a { font-size: .84rem; padding: .4rem .55rem; }
   .heros { padding: 2.4rem 0 2.2rem; }
@@ -525,25 +608,31 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
     --vert-encre:   #7fd0a5;
     --rouge-fond:   #341e1e;
     --rouge-encre:  #e39b95;
-    --ambre-fond:   #251f12;
-    --ambre-trait:  #4a3d1e;
-    --ambre-encre:  #e0c98a;
+    --accent-nuit:  #d5e5f3;
+    --accent-doux:  #56789b;
+    --accent-voile: #131c26;
+    --guilloche:    #2d4258;
+    --embleme-fond: #2e6094;
   }
+  .illu-feuille { fill: var(--papier-gris); }
+  .illu-noeud   { fill: var(--papier-creme); }
+  .illu-aire    { opacity: .09; }
   .entete { background: rgba(17, 22, 28, .92); }
   .repere-page span { background: var(--papier); }
   .res-extrait mark { background: #5c4a12; color: #f7ecc4; }
   .bouton { color: #0d1218; }
   .bouton:hover { color: #0d1218; }
-  .avis { border-left-color: #8a7128; }
 }
 
 @media print {
   .entete, .pied, .nav-voisins, .sommaire, .actions, .fil,
-  .recherche-form, .recherche-filtres, .ancre, .repere-page { display: none !important; }
+  .recherche-form, .recherche-filtres, .ancre, .repere-page,
+  .heros-visuel, .guilloche, .sceau, .section-icone,
+  .vignette-icone, .icone { display: none !important; }
   body { font-size: 11pt; background: #fff; color: #000; }
   .conteneur { max-width: none; padding: 0; }
   .corps-texte { max-width: none; font-size: 11pt; line-height: 1.5; }
-  .avis { border: 1px solid #999; background: #fff; }
+  .avis { border: 0; border-top: 1px solid #999; border-bottom: 1px solid #999; }
   a { color: #000; text-decoration: none; }
   .corps-texte h2, .corps-texte h3 { page-break-after: avoid; }
   .corps-texte p { orphans: 3; widows: 3; }
