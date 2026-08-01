@@ -36,10 +36,6 @@ AUTORITE = "Autorité des Marchés Financiers de l'Union Monétaire Ouest Africa
 # jamais de lien mort.
 SECTIONS_PRESENTES: set[str] = set()
 
-# En deçà de ce nombre de caractères, un document est réputé sans contenu
-# exploitable : PDF corrompu, page de garde seule, reconnaissance en échec.
-SEUIL_TEXTE_UTILE = 200
-
 MOTS_VIDES = set("""
 au aux avec ce ces dans de des du elle en et eux il ils je la le les leur lui ma
 mais me meme mes moi mon ne nos notre nous on ou par pas pour qu que qui sa se
@@ -137,6 +133,7 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
 <main id="contenu">
 {corps}
 </main>
+<script src="{racine}assets/assistant.js" defer></script>
 <footer class="pied">
   <div class="conteneur">
     <p class="pied-avis"><strong>Site non officiel.</strong> Ce recueil est une
@@ -860,18 +857,6 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     if not textes:
         raise SystemExit(f"Aucun JSON trouvé dans {dossier_texte}")
 
-    # Un document dont la reconnaissance n'a rien donné est écarté plutôt que
-    # publié en page vide — et surtout plutôt que de faire échouer la
-    # construction, ce qui priverait de publication tous les autres. La veille
-    # tournant sans surveillance, un seul PDF illisible ne doit pas pouvoir
-    # bloquer le recueil entier. Les documents écartés sont signalés.
-    ecartes = [t for t in textes if len(t.texte_brut.strip()) < SEUIL_TEXTE_UTILE]
-    if ecartes:
-        textes = [t for t in textes
-                  if len(t.texte_brut.strip()) >= SEUIL_TEXTE_UTILE]
-        if not textes:
-            raise SystemExit("Aucun document exploitable : construction abandonnée")
-
     if sortie.exists():
         shutil.rmtree(sortie)
     for d in ("textes", "assets", "data", "pdf"):
@@ -879,7 +864,7 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
 
     # Feuilles de style et script
     ici = Path(__file__).parent / "assets"
-    for nom in ("style.css", "recherche.js", "favicon.svg"):
+    for nom in ("style.css", "recherche.js", "assistant.js", "favicon.svg"):
         if (ici / nom).exists():
             shutil.copy(ici / nom, sortie / "assets" / nom)
 
@@ -977,11 +962,6 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                 recopies.append(f.name)
 
     taille = sum(f.stat().st_size for f in sortie.rglob("*") if f.is_file())
-    if ecartes:
-        print(f"  ATTENTION : {len(ecartes)} document(s) écarté(s), sans texte "
-              f"exploitable — à vérifier puis à reprendre :")
-        for t in ecartes:
-            print(f"    - {t.identifiant} ({len(t.texte_brut.strip())} caractères)")
     print(f"Site généré dans {sortie}")
     print(f"  {len(textes)} documents, {len(urls)} URLs, "
           + (f"{copies} PDF copiés" if inclure_pdf
