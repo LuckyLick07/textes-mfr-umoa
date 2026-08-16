@@ -940,8 +940,9 @@ def _ligne_annuaire(a, dans_categorie: bool = False) -> str:
     return (
         f'<tr data-cat="{a.categorie}" data-pays="{e(a.pays_code)}" '
         f'data-actif="{"1" if a.actif else "0"}" '
-        f'data-nom="{e(sans_accent(a.nom))} {e(a.cat.sigle)} {e(sans_accent(a.pays))} '
-        f'{e(sans_accent(a.agrement))}">'
+        # Le champ de recherche compare en capitales sans accent : l'attribut
+        # doit l'être aussi, sans quoi « sénégal » ne trouve rien.
+        f'data-nom="{e(sans_accent(a.nom + " " + a.cat.sigle + " " + a.pays + " " + a.agrement).upper())}">'
         f'<td class="an-nom"><a href="{cible}">{e(a.nom)}</a></td>'
         f'<td class="an-cat"><span class="sigle" title="{e(a.cat.singulier)}">'
         f'{e(a.cat.sigle)}</span></td>'
