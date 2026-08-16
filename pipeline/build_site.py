@@ -23,6 +23,10 @@ from datetime import date
 from pathlib import Path
 
 from acteurs import CATEGORIES, ORDRE as ORDRE_CATEGORIES, TEXTES_COMMUNS
+from produits import FAMILLES, ORDRE as ORDRE_FAMILLES
+from produits import TEXTES_COMMUNS as OPC_TEXTES_COMMUNS
+from produits import charger as charger_opc
+from produits import par_famille as opc_par_famille
 from acteurs import charger as charger_acteurs
 from acteurs import homologues as acteurs_homologues
 from acteurs import par_categorie as acteurs_par_categorie
@@ -46,6 +50,7 @@ SECTIONS_PRESENTES: set[str] = set()
 # Vrai lorsque l'annuaire des acteurs a pu être chargé : la navigation ne
 # propose la rubrique que si elle est effectivement produite.
 ACTEURS_PRESENTS = False
+OPC_PRESENTS = False
 
 MOTS_VIDES = set("""
 au aux avec ce ces dans de des du elle en et eux il ils je la le les leur lui ma
@@ -93,7 +98,7 @@ def statut(t: Texte) -> tuple[str, str]:
 
 def page_html(*, titre: str, description: str, corps: str, chemin: str,
               base_url: str, jsonld: str = "", classe: str = "",
-              script_annuaire: bool = False) -> str:
+              script_annuaire: bool = False, indexable: bool = True) -> str:
     """Enveloppe HTML commune. `chemin` est la profondeur relative vers la racine."""
     canonique = base_url.rstrip("/") + "/" + chemin.lstrip("/")
     racine = "../" * (chemin.strip("/").count("/") + 1) if chemin.strip("/") else ""
@@ -106,11 +111,24 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
         if c != "rapport" and c in presentes
     )
     if ACTEURS_PRESENTS:
+        liens_nav += f'\n      <span class="nav-sep" aria-hidden="true"></span>'
         liens_nav += f'\n      <a href="{racine}acteurs/">Acteurs</a>'
+    if OPC_PRESENTS:
+        liens_nav += f'\n      <a href="{racine}opc/">OPC</a>'
     lien_rapports = (f' ·\n      <a href="{racine}rapports/">Rapports</a>'
                      if "rapport" in presentes else "")
     script_sup = (f'\n<script src="{racine}assets/annuaire.js" defer></script>'
                   if script_annuaire else "")
+
+    # Les fiches de personnes physiques sont consultables mais tenues hors des
+    # moteurs : le registre de l'Autorité lui-même n'est pas indexable, et un
+    # annuaire nominatif trouvable par une recherche sur un nom propre n'a pas
+    # la même portée qu'une page de société.
+    directive_robots = (
+        '<meta name="robots" content="index, follow, max-snippet:-1, '
+        'max-image-preview:large">' if indexable else
+        '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n'
+        '<meta name="googlebot" content="noindex, nofollow">')
 
     return f"""<!DOCTYPE html>
 <html lang="fr">
@@ -127,7 +145,7 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
 <meta property="og:site_name" content="{e(SITE_NOM)}">
 <meta property="og:locale" content="fr_FR">
 <meta name="twitter:card" content="summary">
-<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+{directive_robots}
 <link rel="icon" href="{racine}assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="{racine}assets/style.css">
 {jsonld}
@@ -1047,7 +1065,7 @@ def page_acteurs(acteurs: list, releve: str, textes: list[Texte],
     </form>
     <p class="an-etat" id="an-etat" role="status" aria-live="polite"></p>
     <div class="an-cadre">
-      <table class="an-table" id="an-table">
+      <table class="an-table" id="an-table" data-objet="acteur">
         <thead>
           <tr><th scope="col">Dénomination</th><th scope="col">Catégorie</th>
           <th scope="col">Pays</th><th scope="col">Agrément</th>
@@ -1338,6 +1356,372 @@ def page_acteur(a, tous: list, textes: list[Texte], releve: str,
 
 
 # --------------------------------------------------------------------------
+#  Organismes de placement collectif
+# --------------------------------------------------------------------------
+
+OPC_INTRO = (
+    "Un organisme de placement collectif met en commun l'épargne de plusieurs "
+    "investisseurs pour l'employer sur le marché. Chacun de ceux qui figurent "
+    "ici a reçu un agrément de l'AMF-UMOA, distinct de celui de la société qui "
+    "le gère : cette rubrique les recense, les rattache à leur gérant et "
+    "renvoie aux textes qui encadrent leur fonctionnement."
+)
+
+
+def _ligne_opc(o, dans_famille: bool = False) -> str:
+    cible = f"{o.slug}/" if dans_famille else f"{o.chemin}/"
+    lib, cls = o.statut
+    court = "En vigueur" if o.actif else "Clos"
+    return (
+        f'<tr data-cat="{o.famille}" data-pays="" '
+        f'data-actif="{"1" if o.actif else "0"}" '
+        f'data-nom="{e(sans_accent(o.nom + " " + o.fam.sigle + " " + o.societe_gestion + " " + o.agrement).upper())}">'
+        f'<td class="an-nom"><a href="{cible}">{e(o.nom_lisible)}</a></td>'
+        f'<td class="an-cat"><span class="sigle" title="{e(o.fam.singulier)}">'
+        f'{e(o.fam.sigle)}</span></td>'
+        f'<td class="an-pays">{e(o.societe_gestion)}</td>'
+        f'<td class="an-agr">{e(o.agrement) or "—"}</td>'
+        f'<td class="an-date">{e(o.date_agrement[:4]) or "—"}</td>'
+        f'<td class="an-etat"><span class="badge {cls} petit">{court}</span></td>'
+        "</tr>")
+
+
+_EN_TETE_OPC = ('<tr><th scope="col">Dénomination</th><th scope="col">Famille</th>'
+                '<th scope="col">Société de gestion</th><th scope="col">Agrément</th>'
+                '<th scope="col">Depuis</th><th scope="col">État</th></tr>')
+
+
+def page_opc(opc: list, releve: str, textes: list[Texte], base_url: str) -> str:
+    groupes = opc_par_famille(opc)
+    par_slug = {t.slug: t for t in textes}
+    en_vigueur = [o for o in opc if o.actif]
+    societes = sorted({o.societe_gestion for o in opc if o.societe_gestion})
+
+    vignettes = "\n".join(f"""
+    <a class="vignette" href="{cle}/">
+      <span class="vignette-icone">{icone(FAMILLES[cle].icone, 26)}</span>
+      <span class="vignette-nombre">{len(g)}</span>
+      <span class="vignette-nom">{e(FAMILLES[cle].court)}</span>
+    </a>""" for cle, g in groupes.items())
+
+    sections = "\n".join(f"""
+  <section class="cat-bloc" id="{cle}">
+    <h2><a href="{cle}/">{e(FAMILLES[cle].pluriel)}</a>
+      <span class="cat-sigle">{e(FAMILLES[cle].sigle)}</span></h2>
+    <p class="cat-role">{e(FAMILLES[cle].role)}</p>
+    <p class="cat-compte">{len(g)} agréé{'s' if len(g) > 1 else ''},
+      dont {sum(1 for o in g if o.actif)} en vigueur ·
+      <a href="{cle}/">Voir la notice et la liste</a></p>
+  </section>""" for cle, g in groupes.items())
+
+    filtres_fam = "\n".join(
+        f'<option value="{cle}">{e(FAMILLES[cle].pluriel)}</option>'
+        for cle in groupes)
+    filtres_sg = "\n".join(f'<option value="{e(s)}">{e(s)}</option>'
+                           for s in societes)
+    lignes = "\n".join(_ligne_opc(o) for o in opc)
+    communs = _renvois_textes([s for s, _ in OPC_TEXTES_COMMUNS], par_slug,
+                              "../textes/", dict(OPC_TEXTES_COMMUNS))
+
+    ld = {
+        "@context": "https://schema.org", "@type": "CollectionPage",
+        "name": "Organismes de placement collectif agréés de l'UMOA",
+        "description": OPC_INTRO[:300],
+        "url": f"{base_url.rstrip('/')}/opc/",
+        "isPartOf": {"@type": "WebSite", "name": SITE_NOM,
+                     "url": base_url.rstrip("/") + "/"},
+        "mainEntity": {"@type": "ItemList", "numberOfItems": len(opc)},
+    }
+
+    corps = f"""
+<div class="conteneur">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../">Accueil</a> <span>›</span>
+    <span aria-current="page">Organismes de placement collectif</span>
+  </nav>
+  <header class="section-entete">
+    <span class="section-icone">{icone("sgo")}</span>
+    <h1>Organismes de placement collectif</h1>
+    <p class="chapeau">{OPC_INTRO}</p>
+    <p class="compte"><strong>{len(opc)}</strong> organismes agréés, dont
+    <strong>{len(en_vigueur)}</strong> en vigueur, gérés par
+    <strong>{len(societes)}</strong> sociétés de gestion.
+    Relevé du {date_francaise(releve)}.</p>
+  </header>
+
+  <nav class="vignettes" aria-label="Familles d'organismes">
+{vignettes}
+  </nav>
+
+  <section class="annuaire" id="annuaire">
+    <h2>Répertoire</h2>
+    <form class="an-filtres" role="search" onsubmit="return false">
+      <p class="an-champ">
+        <label for="an-q">Chercher un organisme</label>
+        <input type="search" id="an-q" placeholder="Nom, société de gestion, agrément…"
+               autocomplete="off" spellcheck="false">
+      </p>
+      <p class="an-champ">
+        <label for="an-cat">Famille</label>
+        <select id="an-cat"><option value="">Toutes</option>
+{filtres_fam}
+        </select>
+      </p>
+      <p class="an-champ">
+        <label for="an-pays">Société de gestion</label>
+        <select id="an-pays"><option value="">Toutes</option>
+{filtres_sg}
+        </select>
+      </p>
+      <p class="an-champ an-bascule">
+        <label for="an-actifs">
+          <input type="checkbox" id="an-actifs" checked>
+          Masquer les organismes clos
+        </label>
+      </p>
+    </form>
+    <p class="an-etat" id="an-etat" role="status" aria-live="polite"></p>
+    <div class="an-cadre">
+      <table class="an-table" id="an-table" data-objet="organisme">
+        <thead>{_EN_TETE_OPC}</thead>
+        <tbody>
+{lignes}
+        </tbody>
+      </table>
+    </div>
+    <p class="an-note">L'état reprend celui du registre de l'Autorité au jour du
+    relevé. Un organisme clos peut rester en cours de liquidation&nbsp;; seul le
+    registre officiel fait foi.</p>
+  </section>
+
+  <section class="cat-blocs">
+    <h2 class="titre-rang">Les familles d'organismes</h2>
+{sections}
+  </section>
+
+  <section class="textes-lies" id="textes-communs">
+    <h2>Textes régissant la gestion collective</h2>
+    <p class="renvoi-avis">Le régime a été refondu en 2021 puis précisé par une
+    série de circulaires en 2022, qui couvrent l'agrément, l'information de
+    l'investisseur, les frais, l'évaluation et les risques.</p>
+    <ul class="textes-lies-liste">
+{communs}
+    </ul>
+  </section>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"Organismes de placement collectif agréés — {SITE_COURT}",
+                     description=OPC_INTRO, corps=corps, chemin="opc/",
+                     base_url=base_url, jsonld=jsonld, classe="page-acteurs",
+                     script_annuaire=True)
+
+
+def page_famille_opc(cle: str, groupe: list, tous: list, textes: list[Texte],
+                     releve: str, base_url: str) -> str:
+    fam = FAMILLES[cle]
+    par_slug = {t.slug: t for t in textes}
+    en_vigueur = [o for o in groupe if o.actif]
+    notice = "\n".join(f"<p>{e(p)}</p>" for p in fam.notice)
+    lignes = "\n".join(_ligne_opc(o, dans_famille=True) for o in groupe)
+    renvois = _renvois_textes(fam.textes, par_slug, "../../textes/")
+    autres = "\n".join(
+        f'<a href="../{c}/">{e(FAMILLES[c].pluriel)}</a>'
+        for c in ORDRE_FAMILLES if c != cle and any(x.famille == c for x in tous))
+
+    ld = {
+        "@context": "https://schema.org", "@type": "CollectionPage",
+        "name": f"{fam.pluriel} agréés sur le marché financier régional",
+        "description": fam.role,
+        "url": f"{base_url.rstrip('/')}/opc/{cle}/",
+        "mainEntity": {"@type": "ItemList", "numberOfItems": len(groupe)},
+    }
+
+    corps = f"""
+<div class="conteneur">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../../">Accueil</a> <span>›</span>
+    <a href="../">Organismes de placement collectif</a> <span>›</span>
+    <span aria-current="page">{e(fam.pluriel)}</span>
+  </nav>
+  <header class="section-entete">
+    <span class="section-icone">{icone(fam.icone)}</span>
+    <p class="surtitre">{e(fam.sigle)}</p>
+    <h1>{e(fam.pluriel)}</h1>
+    <p class="chapeau">{e(fam.role)}</p>
+    <p class="compte"><strong>{len(groupe)}</strong> agréé{'s' if len(groupe) > 1 else ''},
+    dont <strong>{len(en_vigueur)}</strong> en vigueur.
+    Relevé du {date_francaise(releve)}.</p>
+  </header>
+
+  <section class="cat-notice prose">
+    <h2>Ce que recouvre la famille</h2>
+{notice}
+  </section>
+
+  <section class="textes-lies">
+    <h2>Textes applicables</h2>
+    <ul class="textes-lies-liste">
+{renvois}
+    </ul>
+    <p class="renvoi-plus"><a href="../#textes-communs">Textes communs à la
+    gestion collective</a></p>
+  </section>
+
+  <section class="annuaire">
+    <h2>{e(fam.pluriel)} au registre</h2>
+    <div class="an-cadre">
+      <table class="an-table">
+        <thead>{_EN_TETE_OPC}</thead>
+        <tbody>
+{lignes}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <nav class="cat-autres" aria-label="Autres familles">
+    <h2>Autres familles</h2>
+    <p>{autres}</p>
+  </nav>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"{fam.pluriel} agréés ({fam.sigle}) — {SITE_COURT}",
+                     description=f"{fam.role} {len(groupe)} agréés au registre "
+                                 f"de l'AMF-UMOA.",
+                     corps=corps, chemin=f"opc/{cle}/", base_url=base_url,
+                     jsonld=jsonld, classe="page-categorie")
+
+
+def page_opc_fiche(o, tous: list, acteurs: list, textes: list[Texte],
+                   releve: str, base_url: str) -> str:
+    fam = o.fam
+    par_slug = {t.slug: t for t in textes}
+    lib, cls = o.statut
+    accord = "e" if fam.genre == "f" else ""
+    determinant = "une" if fam.genre == "f" else "un"
+
+    gerant = next((a for a in acteurs if a.id == o.societe_gestion_id), None)
+    depuis = f" depuis le {date_francaise(o.date_agrement)}" if o.date_agrement else ""
+    chapeau = (f"{o.nom_lisible} est {determinant} {fam.singulier.lower()} agréé"
+               f"{accord} par l'AMF-UMOA{depuis}"
+               + (f", géré par {o.societe_gestion}." if o.societe_gestion else ".")
+               + f" {fam.role}")
+
+    lien_gerant = (f'<a href="../../../acteurs/{gerant.chemin}/">{e(o.societe_gestion)}</a>'
+                   if gerant else e(o.societe_gestion))
+
+    identite = "".join([
+        _fiche_ligne("Famille",
+                     f'<a href="../">{e(fam.singulier)}</a> '
+                     f'<span class="sigle">{e(fam.sigle)}</span>'),
+        _fiche_ligne("Société de gestion", lien_gerant),
+        _fiche_ligne("Numéro d'agrément", e(o.agrement)),
+        _fiche_ligne("Date d'agrément", date_francaise(o.date_agrement)),
+        _fiche_ligne("Référence au registre",
+                     f'<span class="mono">{e(o.code)}</span>' if o.code else ""),
+        _fiche_ligne("Note d'information",
+                     f'<span class="mono">{e(o.note_information.rsplit(".", 1)[0])}</span>'
+                     '<span class="fiche-glose">référence au registre&nbsp;; '
+                     "l'Autorité n'en publie pas le texte</span>"
+                     if o.note_information else ""),
+        _fiche_ligne("Décision d'agrément",
+                     f'<span class="mono">{e(o.decision.rsplit(".", 1)[0])}</span>'
+                     if o.decision else ""),
+        _fiche_ligne("Registre officiel",
+                     '<a href="https://www.amf-umoa.org/accueil/opcvm" '
+                     'rel="noopener external">Fiche à l\'AMF-UMOA</a>'),
+    ])
+
+    freres = [x for x in tous
+              if x.societe_gestion_id == o.societe_gestion_id and x.chemin != o.chemin]
+    bloc_freres = ""
+    if freres:
+        items = "\n".join(
+            f'<li><a href="../../{x.chemin}/">{e(x.nom_lisible)}</a>'
+            f'<span class="renvoi-objet">{e(x.fam.singulier)}'
+            f'{"" if x.actif else " · clos"}</span></li>'
+            for x in sorted(freres, key=lambda y: (0 if y.actif else 1, y.nom))[:20])
+        bloc_freres = f"""
+  <section class="textes-lies">
+    <h2>Autres organismes de la même société de gestion</h2>
+    <p class="renvoi-avis">{e(o.societe_gestion)} gère {len(freres) + 1} organismes
+    inscrits au registre.</p>
+    <ul class="textes-lies-liste">
+{items}
+    </ul>
+  </section>"""
+
+    renvois = _renvois_textes(fam.textes[:8], par_slug, "../../../textes/")
+
+    ld = {
+        "@context": "https://schema.org", "@type": "FinancialProduct",
+        "name": o.nom_lisible, "description": chapeau[:300],
+        "url": f"{base_url.rstrip('/')}/opc/{o.chemin}/",
+        "provider": {"@type": "Organization", "name": o.societe_gestion}
+        if o.societe_gestion else None,
+    }
+    ld = {k: v for k, v in ld.items() if v is not None}
+
+    corps = f"""
+<div class="conteneur conteneur-fiche">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../../../">Accueil</a> <span>›</span>
+    <a href="../../">Organismes de placement collectif</a> <span>›</span>
+    <a href="../">{e(fam.pluriel)}</a> <span>›</span>
+    <span aria-current="page">{e(o.nom_lisible)}</span>
+  </nav>
+
+  <header class="acteur-entete">
+    <p class="surtitre">{icone(fam.icone, 15)}{e(fam.singulier)}</p>
+    <h1>{e(o.nom_lisible)}</h1>
+    <p class="acteur-etat"><span class="badge {cls}">{lib}</span>
+      <span class="acteur-pays">{e(o.societe_gestion)}</span></p>
+    <p class="chapeau">{e(chapeau)}</p>
+  </header>
+
+  <section class="fiche-bloc">
+    <h2>Identification</h2>
+    <dl class="fiche-dl">
+{identite}
+    </dl>
+    <p class="fiche-note">L'intitulé est celui du registre, rendu lisible sans
+    en modifier la substance&nbsp;: les taux, les millésimes et les mentions de
+    compartiment sont conservés tels quels.</p>
+  </section>
+
+  <section class="textes-lies">
+    <h2>Textes applicables</h2>
+    <ul class="textes-lies-liste">
+{renvois}
+    </ul>
+    <p class="renvoi-plus"><a href="../">Notice complète de la famille</a></p>
+  </section>
+{bloc_freres}
+
+  <section class="fiche-source">
+    <h2>Source</h2>
+    <p>Fiche établie à partir du registre des organismes de placement collectif
+    publié par l'AMF-UMOA, relevé du {date_francaise(releve)}. Ce recueil
+    n'ajoute rien à ce registre&nbsp;: il le met en regard des textes
+    applicables et le relie à la société de gestion. Ni valeur liquidative ni
+    performance ne sont publiées ici&nbsp;: l'Autorité ne les diffuse pas.</p>
+  </section>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"{o.nom_lisible} — {fam.sigle} agréé{accord} "
+                           f"AMF-UMOA — {SITE_COURT}",
+                     description=chapeau, corps=corps,
+                     chemin=f"opc/{o.chemin}/", base_url=base_url,
+                     jsonld=jsonld, classe="page-acteur")
+
+
+# --------------------------------------------------------------------------
 #  Index de recherche
 # --------------------------------------------------------------------------
 
@@ -1435,7 +1819,8 @@ INTROS = {
 def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                sortie: Path, base_url: str, inclure_pdf: bool = False,
                racine_brute: Path | None = None,
-               fichier_acteurs: Path | None = None) -> None:
+               fichier_acteurs: Path | None = None,
+               fichier_opc: Path | None = None) -> None:
     # Le nom d'hôte est insensible à la casse, mais les URL canoniques ne
     # doivent pas pour autant différer de l'adresse réellement servie : GitHub
     # Pages sert en minuscules alors que le nom de compte peut porter des
@@ -1458,6 +1843,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     releve = ""
     if fichier_acteurs:
         acteurs, releve = charger_acteurs(fichier_acteurs)
+    opc: list = []
+    releve_opc = ""
+    if fichier_opc:
+        opc, releve_opc = charger_opc(fichier_opc)
 
     # Feuilles de style et script
     ici = Path(__file__).parent / "assets"
@@ -1470,9 +1859,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     for t in textes:
         par_type[t.type_cle].append(t)
 
-    global SECTIONS_PRESENTES, ACTEURS_PRESENTS
+    global SECTIONS_PRESENTES, ACTEURS_PRESENTS, OPC_PRESENTS
     SECTIONS_PRESENTES = set(par_type)
     ACTEURS_PRESENTS = bool(acteurs)
+    OPC_PRESENTS = bool(opc)
 
     # Pages de documents
     for cle, groupe in par_type.items():
@@ -1522,6 +1912,25 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                     page_acteur(a, acteurs, textes, releve, base_url),
                     encoding="utf-8")
 
+    groupes_opc = opc_par_famille(opc) if opc else {}
+    if opc:
+        d = sortie / "opc"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(
+            page_opc(opc, releve_opc, textes, base_url), encoding="utf-8")
+        for cle, groupe in groupes_opc.items():
+            df = d / cle
+            df.mkdir(parents=True, exist_ok=True)
+            (df / "index.html").write_text(
+                page_famille_opc(cle, groupe, opc, textes, releve_opc, base_url),
+                encoding="utf-8")
+            for o in groupe:
+                do = df / o.slug
+                do.mkdir(parents=True, exist_ok=True)
+                (do / "index.html").write_text(
+                    page_opc_fiche(o, opc, acteurs, textes, releve_opc, base_url),
+                    encoding="utf-8")
+
     # Pages transverses
     (sortie / "index.html").write_text(page_accueil(textes, acteurs, base_url),
                                        encoding="utf-8")
@@ -1554,6 +1963,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
             ("a-propos/", "0.5")]
     urls += [(TYPES[c][1] + "/", "0.8") for c in par_type]
     urls += [(f"textes/{t.slug}/", "0.9") for t in textes]
+    if opc:
+        urls += [("opc/", "0.8")]
+        urls += [(f"opc/{c}/", "0.7") for c in groupes_opc]
+        urls += [(f"opc/{o.chemin}/", "0.6") for o in opc]
     if acteurs:
         urls += [("acteurs/", "0.8")]
         urls += [(f"acteurs/{c}/", "0.7") for c in groupes_acteurs]
@@ -1567,9 +1980,21 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         f"{entrees}\n</urlset>\n", encoding="utf-8")
 
-    (sortie / "robots.txt").write_text(
-        "User-agent: *\nAllow: /\n\n"
-        f"Sitemap: {base_url.rstrip('/')}/sitemap.xml\n", encoding="utf-8")
+    # « Disallow » n'empêche pas l'indexation : il empêche la lecture, donc le
+    # robot ne voit jamais la balise « noindex » et peut tout de même faire
+    # figurer l'adresse. Les moteurs classiques sont donc laissés libres de
+    # lire /personnes/, où la balise leur dit de ne pas indexer ; seuls les
+    # robots d'archivage et d'entraînement, qui ne l'observent pas, en sont
+    # écartés par le chemin.
+    moissonneurs = ("ia_archiver", "archive.org_bot", "GPTBot", "CCBot",
+                    "ClaudeBot", "anthropic-ai", "Google-Extended",
+                    "Applebot-Extended", "PerplexityBot", "Bytespider",
+                    "Amazonbot", "meta-externalagent")
+    blocs = ["User-agent: *", "Allow: /", ""]
+    for robot in moissonneurs:
+        blocs += [f"User-agent: {robot}", "Disallow: /personnes/", ""]
+    blocs.append(f"Sitemap: {base_url.rstrip('/')}/sitemap.xml")
+    (sortie / "robots.txt").write_text("\n".join(blocs) + "\n", encoding="utf-8")
 
     (sortie / ".nojekyll").write_text("", encoding="utf-8")
 
@@ -1592,6 +2017,9 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     if acteurs:
         print(f"  {len(acteurs)} acteurs agréés en {len(groupes_acteurs)} "
               f"catégories (relevé {releve})")
+    if opc:
+        print(f"  {len(opc)} organismes de placement collectif en "
+              f"{len(groupes_opc)} familles (relevé {releve_opc})")
     elif fichier_acteurs:
         print(f"  annuaire des acteurs absent ({fichier_acteurs}) : "
               f"rubrique non produite")
@@ -1615,10 +2043,12 @@ def main() -> int:
                     help="dossier de fichiers à déposer tels quels à la racine")
     ap.add_argument("--acteurs", default="acteurs/acteurs.json",
                     help="relevé du registre des acteurs agréés de l'AMF-UMOA")
+    ap.add_argument("--opc", default="produits/opc.json",
+                    help="relevé du registre des organismes de placement collectif")
     a = ap.parse_args()
     construire(Path(a.texte), Path(a.manifeste), Path(a.pdf),
                Path(a.sortie), a.base_url, a.inclure_pdf, Path(a.racine),
-               Path(a.acteurs))
+               Path(a.acteurs), Path(a.opc))
     return 0
 
 

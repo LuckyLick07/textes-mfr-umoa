@@ -16,6 +16,10 @@
   var caseActifs = document.getElementById('an-actifs');
   var etat = document.getElementById('an-etat');
   var lignes = Array.prototype.slice.call(table.tBodies[0].rows);
+  /* Le même annuaire sert aux acteurs et aux organismes : le nom de ce qu'on
+     compte est porté par le tableau. */
+  var objet = table.getAttribute('data-objet') || 'acteur';
+  var objetPluriel = objet + 's';
 
   function sansAccent(t) {
     return t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
@@ -47,11 +51,11 @@
 
     var total = lignes.length;
     if (visibles === total) {
-      etat.textContent = total + ' acteurs affichés.';
+      etat.textContent = total + ' ' + objetPluriel + ' affichés.';
     } else if (visibles === 0) {
-      etat.textContent = 'Aucun acteur ne correspond à ces critères.';
+      etat.textContent = 'Aucun ' + objet + ' ne correspond à ces critères.';
     } else {
-      etat.textContent = visibles + ' acteur' + (visibles > 1 ? 's' : '') +
+      etat.textContent = visibles + ' ' + (visibles > 1 ? objetPluriel : objet) +
         ' sur ' + total + '.';
     }
   }
