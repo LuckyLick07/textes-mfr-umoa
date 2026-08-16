@@ -250,8 +250,13 @@ def assembler(detenteurs: list[dict], repertoire: list[dict],
     return sortie
 
 
-def construire_jeu(personnes: list[dict], releve: str | None = None) -> dict:
+def construire_jeu(personnes: list[dict], releve: str | None = None,
+                   publie: bool = True) -> dict:
     return {
+        # Interrupteur de publication. Le relevé reste versionné même lorsque
+        # la rubrique est retirée du site : la remettre en ligne ne demande que
+        # de repasser ce champ à « true » et de reconstruire.
+        "publie": publie,
         "sources": {
             "registre": "https://www.amf-umoa.org/accueil/intervenant",
             "repertoire": "Répertoire du recueil, constitué à partir de "
@@ -292,9 +297,13 @@ class Personne:
 
 
 def charger(chemin: Path) -> tuple[list[Personne], str]:
+    """Renvoie une liste vide tant que le relevé n'est pas marqué publié : la
+    rubrique disparaît alors du site, navigation comprise."""
     if not chemin.exists():
         return [], ""
     jeu = json.loads(chemin.read_text(encoding="utf-8"))
+    if not jeu.get("publie", True):
+        return [], jeu.get("releve", "")
     return [Personne(p) for p in jeu.get("personnes", [])], jeu.get("releve", "")
 
 
@@ -324,14 +333,29 @@ def main() -> int:
     c.add_argument("--acteurs", default="acteurs/acteurs.json")
     c.add_argument("--sortie", default="personnes/personnes.json")
     c.add_argument("--releve")
+    c.add_argument("--non-publie", action="store_true",
+                   help="assemble le relevé sans le mettre en ligne")
+
+    b = sous.add_parser("publier", help="met la rubrique en ligne ou la retire")
+    b.add_argument("etat", choices=("oui", "non"))
+    b.add_argument("--fichier", default="personnes/personnes.json")
     a = ap.parse_args()
+
+    if a.commande == "publier":
+        chemin = Path(a.fichier)
+        jeu = json.loads(chemin.read_text(encoding="utf-8"))
+        jeu["publie"] = a.etat == "oui"
+        chemin.write_text(json.dumps(jeu, ensure_ascii=False, indent=1) + "\n",
+                          encoding="utf-8")
+        print(f"{chemin} : publie = {jeu['publie']}")
+        return 0
 
     detenteurs = lire_tsv(Path(a.detenteurs)) if Path(a.detenteurs).exists() else []
     repertoire = lire_tsv(Path(a.repertoire)) if Path(a.repertoire).exists() else []
     acteurs = json.loads(Path(a.acteurs).read_text(encoding="utf-8"))["acteurs"]
 
     personnes = assembler(detenteurs, repertoire, acteurs)
-    jeu = construire_jeu(personnes, a.releve)
+    jeu = construire_jeu(personnes, a.releve, publie=not a.non_publie)
     sortie = Path(a.sortie)
     sortie.parent.mkdir(parents=True, exist_ok=True)
     sortie.write_text(json.dumps(jeu, ensure_ascii=False, indent=1) + "\n",

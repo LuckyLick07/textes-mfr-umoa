@@ -2218,8 +2218,9 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                     "Applebot-Extended", "PerplexityBot", "Bytespider",
                     "Amazonbot", "meta-externalagent")
     blocs = ["User-agent: *", "Allow: /", ""]
-    for robot in moissonneurs:
-        blocs += [f"User-agent: {robot}", "Disallow: /personnes/", ""]
+    if PERSONNES_PRESENTES:
+        for robot in moissonneurs:
+            blocs += [f"User-agent: {robot}", "Disallow: /personnes/", ""]
     blocs.append(f"Sitemap: {base_url.rstrip('/')}/sitemap.xml")
     (sortie / "robots.txt").write_text("\n".join(blocs) + "\n", encoding="utf-8")
 
@@ -2249,7 +2250,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
               f"{len(groupes_opc)} familles (relevé {releve_opc})")
     if gens:
         print(f"  {len(gens)} personnes, non indexées (relevé {releve_gens})")
-    elif fichier_acteurs:
+    elif fichier_personnes and Path(fichier_personnes).exists():
+        print("  répertoire des personnes retiré du site "
+              "(« publie » à false dans le relevé)")
+    if not acteurs and fichier_acteurs:
         print(f"  annuaire des acteurs absent ({fichier_acteurs}) : "
               f"rubrique non produite")
     if recopies:
