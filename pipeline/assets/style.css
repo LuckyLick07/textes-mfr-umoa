@@ -734,6 +734,25 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
   margin: 2.6rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--trait);
 }
 
+/* Répertoire des personnes : mêmes filets que l'annuaire, plus l'avis de
+   non-indexation, qui doit se voir sans crier. */
+.avis-personnes {
+  margin: 2rem 0 0; padding: 1.1rem 1.3rem;
+  border: 1px solid var(--trait-fort); border-left-width: 3px;
+  background: var(--papier-creme); max-width: 76ch;
+}
+.avis-personnes p { margin: 0 0 .6rem; font-size: .92rem; color: var(--encre-douce); }
+.avis-personnes p:last-child { margin-bottom: 0; }
+.avis-personnes strong { color: var(--encre); }
+.vignettes-compte { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.vignette-inerte {
+  display: block; text-align: center; padding: 1rem .8rem;
+  border: 1px solid var(--trait); background: var(--papier);
+}
+.pers-nom { font-family: var(--serif); font-size: 1.02rem; }
+.pers-fonction { color: var(--encre-douce); }
+.page-acteurs .an-table td:nth-child(5) { white-space: normal; font-family: var(--sans); }
+
 /* --- Adaptations ------------------------------------------------------- */
 
 @media (max-width: 960px) {

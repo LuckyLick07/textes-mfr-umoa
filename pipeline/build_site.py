@@ -27,6 +27,10 @@ from produits import FAMILLES, ORDRE as ORDRE_FAMILLES
 from produits import TEXTES_COMMUNS as OPC_TEXTES_COMMUNS
 from produits import charger as charger_opc
 from produits import par_famille as opc_par_famille
+from produits import par_societe as produits_par_societe
+from personnes import FAMILLES_FONCTION
+from personnes import charger as charger_personnes
+from personnes import par_societe as personnes_par_societe
 from acteurs import charger as charger_acteurs
 from acteurs import homologues as acteurs_homologues
 from acteurs import par_categorie as acteurs_par_categorie
@@ -51,6 +55,7 @@ SECTIONS_PRESENTES: set[str] = set()
 # propose la rubrique que si elle est effectivement produite.
 ACTEURS_PRESENTS = False
 OPC_PRESENTS = False
+PERSONNES_PRESENTES = False
 
 MOTS_VIDES = set("""
 au aux avec ce ces dans de des du elle en et eux il ils je la le les leur lui ma
@@ -115,6 +120,8 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
         liens_nav += f'\n      <a href="{racine}acteurs/">Acteurs</a>'
     if OPC_PRESENTS:
         liens_nav += f'\n      <a href="{racine}opc/">OPC</a>'
+    if PERSONNES_PRESENTES:
+        liens_nav += f'\n      <a href="{racine}personnes/">Personnes</a>'
     lien_rapports = (f' ·\n      <a href="{racine}rapports/">Rapports</a>'
                      if "rapport" in presentes else "")
     script_sup = (f'\n<script src="{racine}assets/annuaire.js" defer></script>'
@@ -1201,7 +1208,8 @@ def _fiche_ligne(intitule: str, valeur: str) -> str:
 
 
 def page_acteur(a, tous: list, textes: list[Texte], releve: str,
-                base_url: str) -> str:
+                base_url: str, gens: list | None = None,
+                fonds: list | None = None) -> str:
     cat = a.cat
     par_slug = {t.slug: t for t in textes}
     lib, cls = a.statut
@@ -1278,6 +1286,25 @@ def page_acteur(a, tous: list, textes: list[Texte], releve: str,
     </ul>
   </section>"""
 
+    bloc_gens = bloc_personnes_acteur(gens or [])
+
+    bloc_fonds = ""
+    if fonds:
+        items = "\n".join(
+            f'<li><a href="../../../opc/{o.chemin}/">{e(o.nom_lisible)}</a>'
+            f'<span class="renvoi-objet">{e(o.fam.singulier)}'
+            f'{"" if o.actif else " · clos"}</span></li>'
+            for o in sorted(fonds, key=lambda x: (0 if x.actif else 1, x.nom))[:30])
+        bloc_fonds = f"""
+  <section class="textes-lies">
+    <h2>Organismes gérés</h2>
+    <p class="renvoi-avis">{len(fonds)} organismes de placement collectif sont
+    agréés sous la gestion de cette société.</p>
+    <ul class="textes-lies-liste">
+{items}
+    </ul>
+  </section>"""
+
     renvois = _renvois_textes(cat.textes[:8], par_slug, "../../../textes/")
 
     ld = {
@@ -1333,6 +1360,8 @@ def page_acteur(a, tous: list, textes: list[Texte], releve: str,
     </ul>
     <p class="renvoi-plus"><a href="../">Notice complète de la catégorie</a></p>
   </section>
+{bloc_fonds}
+{bloc_gens}
 {bloc_liens}
 
   <section class="fiche-source">
@@ -1722,6 +1751,186 @@ def page_opc_fiche(o, tous: list, acteurs: list, textes: list[Texte],
 
 
 # --------------------------------------------------------------------------
+#  Personnes
+# --------------------------------------------------------------------------
+
+PERSONNES_INTRO = (
+    "Exercer une fonction réglementée sur le marché suppose une carte "
+    "professionnelle délivrée par l'AMF-UMOA. Ce répertoire réunit les "
+    "titulaires que le registre de l'Autorité rattache à chaque acteur agréé "
+    "et les dirigeants relevés par le recueil dans des sources publiques."
+)
+
+
+def _ligne_personne(p) -> str:
+    lien = (f'<a href="../acteurs/{p.societe_chemin}/">{e(p.societe)}</a>'
+            if p.societe_chemin else e(p.societe))
+    etat = "En fonction" if p.actif else "Non actif"
+    cls = "actif" if p.actif else "inactif"
+    return (
+        f'<tr data-cat="{p.famille}" data-pays="{e(_cle_pays(p.pays))}" '
+        f'data-actif="{"1" if p.actif else "0"}" '
+        f'data-nom="{e(sans_accent(p.nom_complet + " " + p.societe + " " + p.fonction + " " + p.pays).upper())}">'
+        f'<td class="an-nom"><span class="pers-nom">{e(p.nom_complet)}</span></td>'
+        f'<td class="pers-fonction">{e(p.fonction) or "—"}</td>'
+        f'<td class="an-pays">{lien}</td>'
+        f'<td class="an-pays">{e(p.pays)}</td>'
+        f'<td class="an-agr">{e(p.carte) or "—"}</td>'
+        f'<td class="an-etat"><span class="badge {cls} petit">{etat}</span></td>'
+        "</tr>")
+
+
+def _cle_pays(pays: str) -> str:
+    return sans_accent(pays or "").upper().replace(" ", "-").replace("'", "")
+
+
+def page_personnes(personnes: list, releve: str, base_url: str) -> str:
+    en_fonction = [p for p in personnes if p.actif]
+    societes = len({p.societe for p in personnes if p.societe})
+    pays = sorted({(_cle_pays(p.pays), p.pays) for p in personnes if p.pays},
+                  key=lambda x: x[1])
+    familles = []
+    for cle, libelle, _ in FAMILLES_FONCTION:
+        n = sum(1 for p in personnes if p.famille == cle)
+        if n:
+            familles.append((cle, libelle, n))
+
+    vignettes = "\n".join(f"""
+    <span class="vignette vignette-inerte">
+      <span class="vignette-nombre">{n}</span>
+      <span class="vignette-nom">{e(libelle)}</span>
+    </span>""" for _, libelle, n in familles)
+
+    filtres_fam = "\n".join(f'<option value="{cle}">{e(libelle)}</option>'
+                            for cle, libelle, _ in familles)
+    filtres_pays = "\n".join(f'<option value="{e(c)}">{e(n)}</option>'
+                             for c, n in pays)
+    lignes = "\n".join(_ligne_personne(p) for p in personnes)
+
+    corps = f"""
+<div class="conteneur">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../">Accueil</a> <span>›</span>
+    <span aria-current="page">Personnes</span>
+  </nav>
+  <header class="section-entete">
+    <span class="section-icone">{icone("acteurs")}</span>
+    <h1>Personnes exerçant sur le marché</h1>
+    <p class="chapeau">{PERSONNES_INTRO}</p>
+    <p class="compte"><strong>{len(personnes)}</strong> personnes,
+    dont <strong>{len(en_fonction)}</strong> en fonction, réparties dans
+    <strong>{societes}</strong> sociétés. Relevé du {date_francaise(releve)}.</p>
+  </header>
+
+  <section class="avis avis-personnes">
+    <p><strong>Cette page n'est pas indexée par les moteurs de recherche.</strong>
+    Une fiche nominative que l'on trouverait en cherchant un nom propre n'a pas
+    la même portée qu'une page de société&nbsp;; le registre de l'Autorité
+    n'est pas davantage indexable.</p>
+    <p>Le recueil ne reprend ni date ni lieu de naissance, ni photographie, bien
+    que le registre les publie. Il ne reprend pas non plus les numéros de
+    téléphone personnels. Une personne qui souhaite voir corriger ou retirer sa
+    ligne peut le signaler&nbsp;: la correction doit d'abord être faite au
+    registre, qui reste la source.</p>
+  </section>
+
+  <nav class="vignettes vignettes-compte" aria-label="Familles de fonctions">
+{vignettes}
+  </nav>
+
+  <section class="annuaire" id="annuaire">
+    <h2>Répertoire</h2>
+    <form class="an-filtres" role="search" onsubmit="return false">
+      <p class="an-champ">
+        <label for="an-q">Chercher une personne</label>
+        <input type="search" id="an-q" placeholder="Nom, société, fonction…"
+               autocomplete="off" spellcheck="false">
+      </p>
+      <p class="an-champ">
+        <label for="an-cat">Fonction</label>
+        <select id="an-cat"><option value="">Toutes</option>
+{filtres_fam}
+        </select>
+      </p>
+      <p class="an-champ">
+        <label for="an-pays">Pays</label>
+        <select id="an-pays"><option value="">Tous</option>
+{filtres_pays}
+        </select>
+      </p>
+      <p class="an-champ an-bascule">
+        <label for="an-actifs">
+          <input type="checkbox" id="an-actifs" checked>
+          Masquer les personnes non actives
+        </label>
+      </p>
+    </form>
+    <p class="an-etat" id="an-etat" role="status" aria-live="polite"></p>
+    <div class="an-cadre">
+      <table class="an-table" id="an-table" data-objet="personne">
+        <thead>
+          <tr><th scope="col">Nom</th><th scope="col">Fonction</th>
+          <th scope="col">Société</th><th scope="col">Pays</th>
+          <th scope="col">Carte</th><th scope="col">État</th></tr>
+        </thead>
+        <tbody>
+{lignes}
+        </tbody>
+      </table>
+    </div>
+    <p class="an-note">La colonne «&nbsp;carte&nbsp;» reprend l'état
+    d'avancement du dossier au registre — demande enregistrée, carte imprimée,
+    validée. C'est un état administratif, non une attestation d'habilitation.</p>
+  </section>
+
+  <section class="fiche-source">
+    <h2>Sources</h2>
+    <p>Deux sources se croisent ici. Le registre des acteurs agréés de
+    l'AMF-UMOA, qui rattache à chaque société les détenteurs de cartes
+    professionnelles. Et le répertoire du recueil, constitué à partir de
+    brvm.org, de l'annuaire de l'APSGI et de la presse spécialisée, qui couvre
+    des dirigeants que le registre ne nomme pas. Un champ vide signifie
+    «&nbsp;non trouvé dans une source publique vérifiable&nbsp;», jamais
+    «&nbsp;inexistant&nbsp;».</p>
+  </section>
+</div>
+"""
+    return page_html(titre=f"Personnes exerçant sur le marché — {SITE_COURT}",
+                     description=PERSONNES_INTRO, corps=corps,
+                     chemin="personnes/", base_url=base_url,
+                     classe="page-acteurs", script_annuaire=True,
+                     indexable=False)
+
+
+def bloc_personnes_acteur(gens: list) -> str:
+    """Encart des personnes rattachées à un acteur, sur sa fiche."""
+    if not gens:
+        return ""
+    en_fonction = [p for p in gens if p.actif]
+    lignes = "\n".join(
+        f'<li><span class="pers-nom">{e(p.nom_complet)}</span>'
+        f'<span class="renvoi-objet">{e(p.fonction)}'
+        f'{"" if p.actif else " · non actif"}</span></li>'
+        for p in gens[:40])
+    reste = (f'<p class="renvoi-plus">et {len(gens) - 40} autres — '
+             f'<a href="../../../personnes/">voir le répertoire</a></p>'
+             if len(gens) > 40 else
+             '<p class="renvoi-plus"><a href="../../../personnes/">'
+             'Répertoire complet des personnes</a></p>')
+    return f"""
+  <section class="textes-lies">
+    <h2>Personnes rattachées</h2>
+    <p class="renvoi-avis">{len(gens)} personnes figurent au registre pour cette
+    société, dont {len(en_fonction)} en fonction. Cette liste n'est pas
+    indexée par les moteurs de recherche.</p>
+    <ul class="textes-lies-liste">
+{lignes}
+    </ul>
+    {reste}
+  </section>"""
+
+
+# --------------------------------------------------------------------------
 #  Index de recherche
 # --------------------------------------------------------------------------
 
@@ -1820,7 +2029,8 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                sortie: Path, base_url: str, inclure_pdf: bool = False,
                racine_brute: Path | None = None,
                fichier_acteurs: Path | None = None,
-               fichier_opc: Path | None = None) -> None:
+               fichier_opc: Path | None = None,
+               fichier_personnes: Path | None = None) -> None:
     # Le nom d'hôte est insensible à la casse, mais les URL canoniques ne
     # doivent pas pour autant différer de l'adresse réellement servie : GitHub
     # Pages sert en minuscules alors que le nom de compte peut porter des
@@ -1847,6 +2057,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     releve_opc = ""
     if fichier_opc:
         opc, releve_opc = charger_opc(fichier_opc)
+    gens: list = []
+    releve_gens = ""
+    if fichier_personnes:
+        gens, releve_gens = charger_personnes(fichier_personnes)
 
     # Feuilles de style et script
     ici = Path(__file__).parent / "assets"
@@ -1859,10 +2073,13 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     for t in textes:
         par_type[t.type_cle].append(t)
 
-    global SECTIONS_PRESENTES, ACTEURS_PRESENTS, OPC_PRESENTS
+    global SECTIONS_PRESENTES, ACTEURS_PRESENTS, OPC_PRESENTS, PERSONNES_PRESENTES
     SECTIONS_PRESENTES = set(par_type)
     ACTEURS_PRESENTS = bool(acteurs)
     OPC_PRESENTS = bool(opc)
+    PERSONNES_PRESENTES = bool(gens)
+    gens_par_societe = personnes_par_societe(gens) if gens else {}
+    opc_par_societe = produits_par_societe(opc) if opc else {}
 
     # Pages de documents
     for cle, groupe in par_type.items():
@@ -1909,8 +2126,16 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                 da = dc / a.slug
                 da.mkdir(parents=True, exist_ok=True)
                 (da / "index.html").write_text(
-                    page_acteur(a, acteurs, textes, releve, base_url),
+                    page_acteur(a, acteurs, textes, releve, base_url,
+                                gens_par_societe.get(a.chemin, []),
+                                opc_par_societe.get(a.id, [])),
                     encoding="utf-8")
+
+    if gens:
+        d = sortie / "personnes"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(
+            page_personnes(gens, releve_gens, base_url), encoding="utf-8")
 
     groupes_opc = opc_par_famille(opc) if opc else {}
     if opc:
@@ -1963,6 +2188,8 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
             ("a-propos/", "0.5")]
     urls += [(TYPES[c][1] + "/", "0.8") for c in par_type]
     urls += [(f"textes/{t.slug}/", "0.9") for t in textes]
+    # La page des personnes est volontairement absente du plan du site : elle
+    # n'est pas indexable, l'y déclarer serait contradictoire.
     if opc:
         urls += [("opc/", "0.8")]
         urls += [(f"opc/{c}/", "0.7") for c in groupes_opc]
@@ -2020,6 +2247,8 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     if opc:
         print(f"  {len(opc)} organismes de placement collectif en "
               f"{len(groupes_opc)} familles (relevé {releve_opc})")
+    if gens:
+        print(f"  {len(gens)} personnes, non indexées (relevé {releve_gens})")
     elif fichier_acteurs:
         print(f"  annuaire des acteurs absent ({fichier_acteurs}) : "
               f"rubrique non produite")
@@ -2045,10 +2274,12 @@ def main() -> int:
                     help="relevé du registre des acteurs agréés de l'AMF-UMOA")
     ap.add_argument("--opc", default="produits/opc.json",
                     help="relevé du registre des organismes de placement collectif")
+    ap.add_argument("--personnes", default="personnes/personnes.json",
+                    help="répertoire des personnes exerçant sur le marché")
     a = ap.parse_args()
     construire(Path(a.texte), Path(a.manifeste), Path(a.pdf),
                Path(a.sortie), a.base_url, a.inclure_pdf, Path(a.racine),
-               Path(a.acteurs), Path(a.opc))
+               Path(a.acteurs), Path(a.opc), Path(a.personnes))
     return 0
 
 
