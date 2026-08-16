@@ -13,7 +13,7 @@
 
   var TYPES = {
     base: 'Texte de base', instruction: 'Instruction', circulaire: 'Circulaire',
-    decision: 'Décision', rapport: 'Rapport'
+    decision: 'Décision', rapport: 'Rapport', acteur: 'Acteur agréé'
   };
   // Paramètres BM25 usuels : saturation de la fréquence et normalisation
   // partielle par la longueur.
@@ -23,7 +23,8 @@
   // textuelle comparable, le texte normatif passe donc devant le rapport
   // annuel qui ne fait que mentionner le sujet.
   var POIDS_TYPE = {
-    base: 1.35, instruction: 1.2, circulaire: 1.2, decision: 1.2, rapport: 0.75
+    base: 1.35, instruction: 1.2, circulaire: 1.2, decision: 1.2, rapport: 0.75,
+    acteur: 1.0
   };
 
   var champ = document.getElementById('q');
@@ -70,7 +71,7 @@
     .then(function (data) {
       index = data;
       etat.textContent = index.docs.length +
-        ' documents indexés. Saisissez un ou plusieurs mots-clés.';
+        ' documents et acteurs indexés. Saisissez un ou plusieurs mots-clés.';
       filtres.hidden = false;
       var initiale = new URLSearchParams(location.search).get('q');
       if (initiale) {
@@ -196,6 +197,7 @@
 
   function enrichir(resultats, mots) {
     resultats.slice(0, 8).forEach(function (r) {
+      if (r.doc[2] === 'acteur') return;
       var slug = r.doc[0];
       var cible = liste.querySelector('[data-extrait="' + slug + '"]');
       if (!cible) return;
@@ -219,6 +221,13 @@
 
   /* --- Rendu ------------------------------------------------------------ */
 
+  function adresse(d) {
+    if (d[2] === 'acteur') {
+      return '../acteurs/' + d[0].split('/').map(encodeURIComponent).join('/') + '/';
+    }
+    return '../textes/' + encodeURIComponent(d[0]) + '/';
+  }
+
   function afficher(resultats, requete) {
     var mots = decouper(requete);
     liste.innerHTML = '';
@@ -231,7 +240,7 @@
     }
 
     etat.textContent = resultats.length + (resultats.length === 60 ? '+' : '') +
-      ' document' + (resultats.length > 1 ? 's' : '') + ' trouvé' +
+      ' résultat' + (resultats.length > 1 ? 's' : '') + ' trouvé' +
       (resultats.length > 1 ? 's' : '') + ' pour « ' + requete + ' »';
 
     var frag = document.createDocumentFragment();
@@ -239,10 +248,12 @@
       var d = r.doc;
       var li = document.createElement('li');
       var meta = [d[5], d[3]].filter(Boolean).join(' · ');
+      var estActeur = d[2] === 'acteur';
       li.innerHTML =
         '<span class="res-type">' + echapper(TYPES[d[2]] || d[2]) + '</span>' +
-        (d[4] ? ' <span class="badge abroge">Abrogé</span>' : '') +
-        '<h2><a href="../textes/' + encodeURIComponent(d[0]) + '/">' +
+        (d[4] ? ' <span class="badge ' + (estActeur ? 'inactif">Non actif' :
+          'abroge">Abrogé') + '</span>' : '') +
+        '<h2><a href="' + adresse(d) + '">' +
         echapper(d[1]) + '</a></h2>' +
         (meta ? '<p class="res-meta">' + echapper(meta) + '</p>' : '') +
         '<p class="res-extrait" data-extrait="' + echapper(d[0]) + '">' +
@@ -260,7 +271,7 @@
     if (!requete) {
       liste.innerHTML = '';
       etat.textContent = index.docs.length +
-        ' documents indexés. Saisissez un ou plusieurs mots-clés.';
+        ' documents et acteurs indexés. Saisissez un ou plusieurs mots-clés.';
       return;
     }
     afficher(chercher(requete), requete);

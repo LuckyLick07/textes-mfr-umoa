@@ -186,16 +186,26 @@ def verifier(racine: Path) -> Rapport:
         r.stats["index_termes"] = len(termes)
         r.stats["index_ko"] = idx.stat().st_size // 1024
 
+        # L'index mêle les documents et les acteurs agréés ; les seconds
+        # n'ont ni page sous « textes/ » ni texte brut sous « data/ ».
+        docs_textes = [d for d in docs if len(d) > 2 and d[2] != "acteur"]
+        docs_acteurs = [d for d in docs if len(d) > 2 and d[2] == "acteur"]
+        r.stats["index_acteurs"] = len(docs_acteurs)
+
         pages_texte = [p for p in pages
                        if p.relative_to(racine).as_posix().startswith("textes/")]
-        if len(docs) != len(pages_texte):
-            r.alerte(f"index : {len(docs)} documents indexés pour "
+        if len(docs_textes) != len(pages_texte):
+            r.alerte(f"index : {len(docs_textes)} documents indexés pour "
                      f"{len(pages_texte)} pages de texte")
 
         for i, d in enumerate(docs):
             if len(d) < 7:
                 r.erreur(f"index : entrée {i} incomplète")
                 break
+            if d[2] == "acteur":
+                if not (racine / "acteurs" / d[0] / "index.html").exists():
+                    r.erreur(f"index : acteur sans fiche → {d[0]}")
+                continue
             if not (racine / "textes" / d[0] / "index.html").exists():
                 r.erreur(f"index : slug sans page → {d[0]}")
             if not (racine / "data" / f"{d[0]}.txt").exists():

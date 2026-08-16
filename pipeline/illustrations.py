@@ -230,6 +230,88 @@ _CORPS_ICONES = {
         '<path d="M12 6.5C10.5 5 8 4.5 4 4.5v14c4 0 6.5.5 8 2 1.5-1.5 4-2 8-2v-14c-4 0-6.5.5-8 2z"/>'
         '<path d="M12 6.5v14"/>'
     ),
+
+    # --- Acteurs agréés -------------------------------------------------
+    # Trois jetons reliés : la population des intervenants du marché.
+    "acteurs": (
+        '<circle cx="12" cy="6" r="2.6"/>'
+        '<circle cx="5.5" cy="17" r="2.6"/>'
+        '<circle cx="18.5" cy="17" r="2.6"/>'
+        '<path d="M10.6 8.3 7 14.7M13.4 8.3 17 14.7M8.1 17h7.8"/>'
+    ),
+    # Façade à colonnes : la Bourse.
+    "bourse": (
+        '<path d="M3.5 9 12 4l8.5 5"/>'
+        '<path d="M5.5 9v8M9.8 9v8M14.2 9v8M18.5 9v8"/>'
+        '<path d="M3.5 20h17"/>'
+    ),
+    # Coffre à cadran : la conservation centrale des titres.
+    "depositaire": (
+        '<rect x="3.5" y="4.5" width="17" height="15"/>'
+        '<circle cx="11" cy="12" r="3.4"/>'
+        '<path d="M11 12h3.6M17.5 8.5v7"/>'
+    ),
+    # Double flèche : l'intermédiation, l'ordre porté au marché.
+    "sgi": (
+        '<path d="M3.5 9h14"/><path d="M14.5 5.8 17.8 9l-3.3 3.2"/>'
+        '<path d="M20.5 15h-14"/><path d="M9.5 11.8 6.2 15l3.3 3.2"/>'
+    ),
+    # Registre et cadenas : la tenue de compte-conservation.
+    "tcc": (
+        '<path d="M5 4.5h9.5a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2z"/>'
+        '<path d="M5 16.5h11.5"/><path d="M8.2 8h6M8.2 11h6"/>'
+        '<circle cx="19" cy="8.6" r="2.1"/><path d="M19 10.7v4.4l1.4 1"/>'
+    ),
+    # Parts rassemblées dans un contenant : la gestion collective.
+    "sgo": (
+        '<path d="M4 8.5h16l-1.6 11H5.6z"/>'
+        '<path d="M4 8.5 8 4h8l4 4.5"/>'
+        '<path d="M9.5 12.2v4M14.5 12.2v4"/>'
+    ),
+    # Action nominative : la SICAV, société dont on devient actionnaire.
+    "sicav": (
+        '<rect x="3.5" y="6" width="17" height="12"/>'
+        '<circle cx="8.5" cy="12" r="2.4"/>'
+        '<path d="M13.5 10h4M13.5 14h4"/>'
+    ),
+    # Mallette : le patrimoine confié en gestion.
+    "sgp": (
+        '<rect x="3.5" y="7.5" width="17" height="11"/>'
+        '<path d="M9 7.5V6a1.6 1.6 0 0 1 1.6-1.6h2.8A1.6 1.6 0 0 1 15 6v1.5"/>'
+        '<path d="M3.5 12.5h17"/><path d="M11 11.5h2v2h-2z"/>'
+    ),
+    # Entonnoir : des créances vers un titre négociable.
+    "titrisation": (
+        '<path d="M3.5 4.5h17l-6.5 7.5v7.5l-4-2.2V12z"/>'
+        '<path d="M7.5 8h9"/>'
+    ),
+    # Marches et fanion : l'accompagnement vers la cote.
+    "listing": (
+        '<path d="M3.5 19.5h5v-5h5v-5h5"/>'
+        '<path d="M16.5 4v6"/><path d="M16.5 4.4h4.2l-1.4 1.7 1.4 1.7h-4.2"/>'
+    ),
+    # Bulle et courbe : le conseil en investissement.
+    "conseil": (
+        '<path d="M4 5h16v10H9.5L5 18.5V15H4z"/>'
+        '<path d="M7.5 11.5 10 9l2.4 2 4.1-4"/>'
+    ),
+    # Deux maillons : la mise en relation.
+    "apporteur": (
+        '<path d="M9.8 14.2 14.2 9.8"/>'
+        '<path d="M12.6 7 14 5.6a3.6 3.6 0 0 1 5.1 5.1L17.7 12"/>'
+        '<path d="M11.4 17 10 18.4a3.6 3.6 0 0 1-5.1-5.1L6.3 12"/>'
+    ),
+    # Cadran gradué : la notation.
+    "notation": (
+        '<path d="M3.5 17a8.5 8.5 0 0 1 17 0"/>'
+        '<path d="M12 17 16 10.5"/><circle cx="12" cy="17" r="1.2"/>'
+        '<path d="M4.6 12.4l1.5.9M12 8.5v1.7M19.4 12.4l-1.5.9"/>'
+    ),
+    # Écu : la garantie apportée aux souscripteurs.
+    "garantie": (
+        '<path d="M12 3.5 5 6v6c0 4 3 6.8 7 8.5 4-1.7 7-4.5 7-8.5V6z"/>'
+        '<path d="M8.8 11.8 11 14l4.2-4.2"/>'
+    ),
 }
 
 

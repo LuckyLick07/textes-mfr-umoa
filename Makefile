@@ -2,6 +2,7 @@
 #
 #   make corpus     télécharge les PDF depuis le site officiel
 #   make ocr        reconnaissance optique des PDF non encore traités
+#   make acteurs    met à jour l'annuaire des acteurs agréés (AMF-UMOA)
 #   make site       génère le site statique
 #   make verifier   contrôles automatiques sur le site généré
 #   make servir     sert le site en local sur http://localhost:8000
@@ -12,16 +13,17 @@
 PDF      ?= $(HOME)/amf-umoa-corpus/pdf
 MANIFEST ?= $(HOME)/amf-umoa-corpus/manifest.json
 TEXTE    ?= texte
+ACTEURS  ?= acteurs/acteurs.json
 SITE     ?= site
 JOBS     ?= 4
 BASE_URL ?= http://localhost:8000
 
 PY := python3
 
-.PHONY: tout corpus ocr site verifier servir suspects corrections propre aide
+.PHONY: tout corpus ocr acteurs site verifier servir suspects corrections propre aide
 
 aide:
-	@sed -n '2,14p' $(MAKEFILE_LIST) | sed 's/^# \{0,1\}//'
+	@sed -n '2,15p' $(MAKEFILE_LIST) | sed 's/^# \{0,1\}//'
 
 corpus:
 	bash telecharger-corpus-amf.sh
@@ -40,9 +42,12 @@ corrections:
 	  $(PY) pipeline/relire.py appliquer "$$f" --texte $(TEXTE); \
 	done
 
+acteurs:
+	$(PY) pipeline/acteurs.py collecter --sortie $(ACTEURS) --journal journal
+
 site: corrections
 	$(PY) pipeline/build_site.py --texte $(TEXTE) --manifeste manifest.json \
-	      --sortie $(SITE) --base-url "$(BASE_URL)"
+	      --sortie $(SITE) --acteurs $(ACTEURS) --base-url "$(BASE_URL)"
 
 verifier:
 	$(PY) pipeline/verifier.py $(SITE)

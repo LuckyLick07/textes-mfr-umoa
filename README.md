@@ -200,10 +200,41 @@ convention, et `apports/metadonnees.json` permet de compléter après coup une
 date, un résumé ou l'adresse de la source. Ces documents forment la rubrique
 « Autres actes » du recueil.
 
+## Annuaire des acteurs agréés
+
+À côté des textes, le recueil publie le registre des intervenants agréés par
+l'AMF-UMOA : 164 inscriptions réparties en 14 catégories d'agrément — de la
+Bourse et du Dépositaire Central aux SGI, sociétés de gestion d'OPC, teneurs de
+comptes, listing sponsors, apporteurs d'affaires, agences de notation et
+organismes de garantie.
+
+`pipeline/acteurs.py` interroge l'API du registre de l'Autorité
+(`/service/api/elastic/acteur`), normalise les enregistrements et les versionne
+dans `acteurs/acteurs.json`. Le module porte aussi la partie éditoriale : pour
+chaque catégorie, une notice expliquant le métier et la liste des textes du
+recueil qui la régissent — ces renvois sont vérifiés à la construction, un slug
+inconnu échoue plutôt que de produire un lien mort.
+
+```bash
+make acteurs        # relève le registre et consigne les mouvements dans journal/
+```
+
+Le relevé est refait chaque mois par `veille.yml`, qui écrit dans
+`journal/derniers-agrements.md` les entrants, les sortants et les fiches
+modifiées depuis le relevé précédent. Le site produit une page d'ensemble avec
+annuaire filtrable, une page par catégorie et une fiche par acteur ; les acteurs
+entrent aussi dans l'index de recherche plein texte.
+
+Deux choix méritent d'être notés. La mention d'activité reprise du registre est
+affichée telle quelle, sans être présentée comme une attestation. Et les
+coordonnées des personnes physiques habilitées, quoique publiées par l'Autorité,
+ne sont pas reprises : les recopier sur un site indexable en démultiplierait la
+diffusion sans nécessité.
+
 ## Publication
 
 Le workflow `.github/workflows/deploy.yml` construit et publie le site sur
-GitHub Pages à chaque modification du texte, des corrections ou du pipeline. Il
+GitHub Pages à chaque modification du texte, des corrections, de l'annuaire des acteurs ou du pipeline. Il
 faut au préalable activer Pages sur le dépôt, avec GitHub Actions comme source.
 Si le site est servi depuis un domaine personnalisé, définir la variable de dépôt
 `BASE_URL` en conséquence : elle conditionne les URLs canoniques et le sitemap.

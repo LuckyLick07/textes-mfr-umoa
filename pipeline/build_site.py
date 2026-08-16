@@ -22,7 +22,12 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-from corpus import TYPES, Texte, charger, date_francaise, sans_accent
+from acteurs import CATEGORIES, ORDRE as ORDRE_CATEGORIES, TEXTES_COMMUNS
+from acteurs import charger as charger_acteurs
+from acteurs import homologues as acteurs_homologues
+from acteurs import par_categorie as acteurs_par_categorie
+from corpus import (TYPES, Texte, charger, date_francaise, sans_accent,
+                    titre_propre)
 from illustrations import (EMBLEME, bande_guillochee, icone, illustration_heros,
                            sceau_rosette)
 
@@ -37,6 +42,10 @@ AUTORITE = "Autorité des Marchés Financiers de l'Union Monétaire Ouest Africa
 # navigation ne pointe que vers celles-ci, pour qu'un corpus partiel ne génère
 # jamais de lien mort.
 SECTIONS_PRESENTES: set[str] = set()
+
+# Vrai lorsque l'annuaire des acteurs a pu être chargé : la navigation ne
+# propose la rubrique que si elle est effectivement produite.
+ACTEURS_PRESENTS = False
 
 MOTS_VIDES = set("""
 au aux avec ce ces dans de des du elle en et eux il ils je la le les leur lui ma
@@ -83,7 +92,8 @@ def statut(t: Texte) -> tuple[str, str]:
 # --------------------------------------------------------------------------
 
 def page_html(*, titre: str, description: str, corps: str, chemin: str,
-              base_url: str, jsonld: str = "", classe: str = "") -> str:
+              base_url: str, jsonld: str = "", classe: str = "",
+              script_annuaire: bool = False) -> str:
     """Enveloppe HTML commune. `chemin` est la profondeur relative vers la racine."""
     canonique = base_url.rstrip("/") + "/" + chemin.lstrip("/")
     racine = "../" * (chemin.strip("/").count("/") + 1) if chemin.strip("/") else ""
@@ -95,8 +105,12 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
         for c in TYPES
         if c != "rapport" and c in presentes
     )
+    if ACTEURS_PRESENTS:
+        liens_nav += f'\n      <a href="{racine}acteurs/">Acteurs</a>'
     lien_rapports = (f' ·\n      <a href="{racine}rapports/">Rapports</a>'
                      if "rapport" in presentes else "")
+    script_sup = (f'\n<script src="{racine}assets/annuaire.js" defer></script>'
+                  if script_annuaire else "")
 
     return f"""<!DOCTYPE html>
 <html lang="fr">
@@ -138,7 +152,7 @@ def page_html(*, titre: str, description: str, corps: str, chemin: str,
 <main id="contenu">
 {corps}
 </main>
-<script src="{racine}assets/assistant.js" defer></script>
+<script src="{racine}assets/assistant.js" defer></script>{script_sup}
 <footer class="pied">
   {bande_guillochee("guilloche-pied")}
   <div class="conteneur pied-corps">
@@ -354,7 +368,7 @@ def page_texte(t: Texte, base_url: str, voisins: dict,
             f'du Règlement Général</a>')
     if liens_refs:
         refs_html = (
-            '<section class="renvois"><h2>Renvois détectés dans le texte</h2><p>'
+            '<section class="textes-lies"><h2>Renvois détectés dans le texte</h2><p>'
             + " · ".join(liens_refs) + "</p></section>"
         )
 
@@ -511,7 +525,7 @@ def page_liste(type_cle: str, textes: list[Texte], base_url: str,
 #  Accueil, chronologie, recherche, à propos
 # --------------------------------------------------------------------------
 
-def page_accueil(textes: list[Texte], base_url: str) -> str:
+def page_accueil(textes: list[Texte], acteurs: list, base_url: str) -> str:
     par_type = defaultdict(list)
     for t in textes:
         par_type[t.type_cle].append(t)
@@ -556,6 +570,26 @@ def page_accueil(textes: list[Texte], base_url: str) -> str:
             "query-input": "required name=search_term_string",
         },
     }
+
+    bloc_acteurs = ""
+    if acteurs:
+        groupes = acteurs_par_categorie(acteurs)
+        colonnes = "\n".join(f"""
+    <li><a href="acteurs/{cle}/">
+      <strong>{e(CATEGORIES[cle].pluriel)}</strong>
+      <span>{len(g)} agréé{'s' if len(g) > 1 else ''}</span>
+    </a></li>""" for cle, g in groupes.items())
+        bloc_acteurs = f"""
+  <section class="bloc-accueil">
+    <h2>Qui est qui sur le marché</h2>
+    <p class="chapeau">Les {len(acteurs)} acteurs agréés par l'AMF-UMOA, classés
+    par métier, avec pour chacun sa fiche et les textes qui le régissent.</p>
+    <ul class="liste-base liste-acteurs">
+{colonnes}
+    </ul>
+    <p class="voir-plus"><a href="acteurs/">Annuaire complet et notices par
+    catégorie</a></p>
+  </section>"""
 
     corps = f"""
 <section class="heros">
@@ -605,6 +639,8 @@ def page_accueil(textes: list[Texte], base_url: str) -> str:
     <a href="circulaires/">toutes les circulaires</a> ·
     <a href="chronologie/">chronologie complète</a></p>
   </section>
+
+{bloc_acteurs}
 
   <section class="bloc-accueil encadre">
     <h2>Comment ce recueil est constitué</h2>
@@ -680,7 +716,9 @@ def page_recherche(base_url: str) -> str:
     <span class="section-icone">__ICONE_RECHERCHE__</span>
     <h1>Rechercher dans le corpus</h1>
     <p class="chapeau">La recherche porte sur le texte intégral de tous les
-    documents du recueil, y compris le contenu des pages scannées.</p>
+    documents du recueil, y compris le contenu des pages scannées, ainsi que
+    sur l'annuaire des acteurs agréés — dénomination, sigle et numéro
+    d'agrément.</p>
   </header>
 
   <form class="recherche-form" role="search" onsubmit="return false">
@@ -698,6 +736,7 @@ def page_recherche(base_url: str) -> str:
     <button type="button" data-type="circulaire">Circulaires</button>
     <button type="button" data-type="decision">Décisions</button>
     <button type="button" data-type="rapport">Rapports</button>
+    <button type="button" data-type="acteur">Acteurs agréés</button>
   </div>
 
   <p id="etat" class="recherche-etat">Chargement de l'index…</p>
@@ -756,6 +795,23 @@ def page_apropos(textes: list[Texte], base_url: str) -> str:
     alinéas et énumérations sont identifiés afin de produire un balisage
     sémantique. Chaque article reçoit une ancre stable, ce qui permet de pointer
     directement une disposition précise.</p>
+
+    <h2>L'annuaire des acteurs agréés</h2>
+    <p>La rubrique «&nbsp;Acteurs&nbsp;» reprend le registre des intervenants
+    agréés publié par l'AMF-UMOA, relevé automatiquement chaque mois. Les
+    données d'identification — dénomination, catégorie d'agrément, numéro et
+    date d'agrément, siège, coordonnées — proviennent intégralement de ce
+    registre&nbsp;; le recueil n'y ajoute rien. Ce qu'il apporte est le
+    rattachement de chaque catégorie aux textes qui la régissent, et une notice
+    expliquant le métier.</p>
+    <p>Une réserve. La mention d'activité reprise du registre n'est pas une
+    attestation&nbsp;: un agrément peut avoir été retiré, suspendu ou renouvelé
+    sans que le relevé le reflète encore, et seul le registre officiel fait foi.
+    Les coordonnées, en revanche, sont reprises intégralement — toutes les
+    adresses électroniques, tous les numéros —, telles que l'Autorité les
+    publie. Une société qui souhaite voir corriger sa fiche peut le signaler,
+    mais la correction doit d'abord être faite au registre, qui reste la
+    source.</p>
 
     <h2>Fiabilité et limites</h2>
     <p>La reconnaissance optique n'est jamais parfaite. Sur ce corpus, l'indice de
@@ -819,10 +875,472 @@ def page_apropos(textes: list[Texte], base_url: str) -> str:
 
 
 # --------------------------------------------------------------------------
+#  Acteurs agréés
+# --------------------------------------------------------------------------
+
+ACTEURS_INTRO = (
+    "Nul ne peut exercer sur le Marché Financier Régional sans un agrément ou "
+    "une habilitation de l'AMF-UMOA. Cette rubrique reprend le registre des "
+    "acteurs agréés tenu par l'Autorité et le met en regard des textes qui "
+    "régissent chaque métier : qui négocie les titres, qui les conserve, qui "
+    "gère les fonds, qui accompagne les émetteurs, qui garantit et qui note."
+)
+
+
+# Les résumés du corpus reprennent l'intitulé officiel, saisi en capitales et
+# précédé de la référence de l'acte. Sur une liste de renvois, seule importe la
+# matière : on retire donc la référence et la formule d'attaque.
+_ATTAQUE = re.compile(
+    r"^\s*(?:(?:instruction|circulaire|d[ée]cision|r[èe]glement)[^,;]{0,60}?"
+    r"(?:n[°o]\s*[\w/.-]+)?\s*)?"
+    r"(?:est\s+)?(?:relative?\s+(?:aux?|[àa]|au)|portant|applicable\s+aux?)\s+",
+    re.I)
+
+
+def objet_court(resume: str, limite: int = 115) -> str:
+    """Matière d'un texte, sans sa référence ni sa formule d'attaque."""
+    t = titre_propre(" ".join((resume or "").split()))
+    t = _ATTAQUE.sub("", t).strip(" .,;:")
+    t = re.sub(r"^(?:l'|la |le |les |des |du |de la |de |aux |au |a )", "", t,
+               flags=re.I)
+    if len(t) > limite:
+        t = t[:limite].rsplit(" ", 1)[0].rstrip(" .,;:") + "…"
+    # Les résumés du corpus sont eux-mêmes tronqués et se terminent parfois sur
+    # un mot amputé (« en dehors de l'etat de leur s ») : on le retire.
+    mots = t.split(" ")
+    if len(mots) > 3 and 0 < len(mots[-1]) <= 2 and mots[-1].isalpha():
+        t = " ".join(mots[:-1]) + "…"
+    return (t[:1].upper() + t[1:]) if t else ""
+
+
+def _renvois_textes(slugs, textes_par_slug, prefixe: str,
+                    legendes: dict[str, str] | None = None) -> str:
+    """Liste de renvois vers les textes du recueil, ignorant les absents."""
+    lignes = []
+    for s in slugs:
+        t = textes_par_slug.get(s)
+        if not t:
+            continue
+        legende = (legendes or {}).get(s) or objet_court(t.resume)
+        lignes.append(
+            f'<li><a href="{prefixe}{t.slug}/">{e(t.titre_court)}</a>'
+            + (f'<span class="renvoi-objet">{e(legende[:160])}</span>'
+               if legende else "")
+            + "</li>")
+    return "\n".join(lignes)
+
+
+def _ligne_annuaire(a, dans_categorie: bool = False) -> str:
+    """Une ligne d'annuaire. Depuis une page de catégorie, le lien est relatif
+    au dossier de la catégorie ; depuis la page d'ensemble, il le préfixe."""
+    cible = f"{a.slug}/" if dans_categorie else f"{a.chemin}/"
+    _, cls = a.statut
+    lib = "Actif" if a.actif else "Non actif"
+    pays = e(a.pays)
+    return (
+        f'<tr data-cat="{a.categorie}" data-pays="{e(a.pays_code)}" '
+        f'data-actif="{"1" if a.actif else "0"}" '
+        f'data-nom="{e(sans_accent(a.nom))} {e(a.cat.sigle)} {e(sans_accent(a.pays))} '
+        f'{e(sans_accent(a.agrement))}">'
+        f'<td class="an-nom"><a href="{cible}">{e(a.nom)}</a></td>'
+        f'<td class="an-cat"><span class="sigle" title="{e(a.cat.singulier)}">'
+        f'{e(a.cat.sigle)}</span></td>'
+        f'<td class="an-pays">{pays}</td>'
+        f'<td class="an-agr">{e(a.agrement) or "—"}</td>'
+        f'<td class="an-date">{e(a.date_agrement[:4]) or "—"}</td>'
+        f'<td class="an-etat"><span class="badge {cls} petit">{lib}</span></td>'
+        "</tr>")
+
+
+def page_acteurs(acteurs: list, releve: str, textes: list[Texte],
+                 base_url: str) -> str:
+    groupes = acteurs_par_categorie(acteurs)
+    par_slug = {t.slug: t for t in textes}
+    actifs = [a for a in acteurs if a.actif]
+    pays = sorted({(a.pays_code, a.pays) for a in acteurs}, key=lambda x: x[1])
+
+    vignettes = "\n".join(f"""
+    <a class="vignette" href="{cle}/">
+      <span class="vignette-icone">{icone(CATEGORIES[cle].icone, 26)}</span>
+      <span class="vignette-nombre">{len(g)}</span>
+      <span class="vignette-nom">{e(CATEGORIES[cle].court)}</span>
+    </a>""" for cle, g in groupes.items())
+
+    sections = "\n".join(f"""
+  <section class="cat-bloc" id="{cle}">
+    <h2><a href="{cle}/">{e(CATEGORIES[cle].pluriel)}</a>
+      <span class="cat-sigle">{e(CATEGORIES[cle].sigle)}</span></h2>
+    <p class="cat-role">{e(CATEGORIES[cle].role)}</p>
+    <p class="cat-compte">{len(g)} inscrit{'s' if len(g) > 1 else ''} au registre,
+      dont {sum(1 for a in g if a.actif)} en activité ·
+      <a href="{cle}/">Voir la notice et la liste</a></p>
+  </section>""" for cle, g in groupes.items())
+
+    filtres_cat = "\n".join(
+        f'<option value="{cle}">{e(CATEGORIES[cle].pluriel)}</option>'
+        for cle in groupes)
+    filtres_pays = "\n".join(f'<option value="{e(c)}">{e(n)}</option>'
+                             for c, n in pays)
+    lignes = "\n".join(_ligne_annuaire(a) for a in acteurs)
+
+    communs = _renvois_textes([s for s, _ in TEXTES_COMMUNS], par_slug,
+                              "../textes/", dict(TEXTES_COMMUNS))
+
+    ld = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": "Acteurs agréés du Marché Financier Régional de l'UMOA",
+        "description": ACTEURS_INTRO[:300],
+        "url": f"{base_url.rstrip('/')}/acteurs/",
+        "isPartOf": {"@type": "WebSite", "name": SITE_NOM,
+                     "url": base_url.rstrip("/") + "/"},
+        "mainEntity": {"@type": "ItemList", "numberOfItems": len(acteurs)},
+    }
+
+    corps = f"""
+<div class="conteneur">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../">Accueil</a> <span>›</span>
+    <span aria-current="page">Acteurs agréés</span>
+  </nav>
+  <header class="section-entete">
+    <span class="section-icone">{icone("acteurs")}</span>
+    <h1>Acteurs agréés du marché</h1>
+    <p class="chapeau">{ACTEURS_INTRO}</p>
+    <p class="compte"><strong>{len(acteurs)}</strong> inscriptions au registre,
+    dont <strong>{len(actifs)}</strong> en activité, réparties en
+    <strong>{len(groupes)}</strong> catégories d'agrément.
+    Relevé du {date_francaise(releve)}.</p>
+  </header>
+
+  <nav class="vignettes" aria-label="Catégories d'acteurs">
+{vignettes}
+  </nav>
+
+  <section class="annuaire" id="annuaire">
+    <h2>Annuaire</h2>
+    <form class="an-filtres" role="search" onsubmit="return false">
+      <p class="an-champ">
+        <label for="an-q">Chercher un acteur</label>
+        <input type="search" id="an-q" placeholder="Nom, sigle, numéro d'agrément…"
+               autocomplete="off" spellcheck="false">
+      </p>
+      <p class="an-champ">
+        <label for="an-cat">Catégorie</label>
+        <select id="an-cat"><option value="">Toutes</option>
+{filtres_cat}
+        </select>
+      </p>
+      <p class="an-champ">
+        <label for="an-pays">Pays du siège</label>
+        <select id="an-pays"><option value="">Tous</option>
+{filtres_pays}
+        </select>
+      </p>
+      <p class="an-champ an-bascule">
+        <label for="an-actifs">
+          <input type="checkbox" id="an-actifs" checked>
+          Masquer les inscriptions non actives
+        </label>
+      </p>
+    </form>
+    <p class="an-etat" id="an-etat" role="status" aria-live="polite"></p>
+    <div class="an-cadre">
+      <table class="an-table" id="an-table">
+        <thead>
+          <tr><th scope="col">Dénomination</th><th scope="col">Catégorie</th>
+          <th scope="col">Pays</th><th scope="col">Agrément</th>
+          <th scope="col">Depuis</th><th scope="col">État</th></tr>
+        </thead>
+        <tbody>
+{lignes}
+        </tbody>
+      </table>
+    </div>
+    <p class="an-note">L'état indiqué reprend celui du registre de l'Autorité au
+    jour du relevé. Il ne vaut pas attestation&nbsp;: seul le registre officiel
+    fait foi.</p>
+  </section>
+
+  <section class="cat-blocs">
+    <h2 class="titre-rang">Les métiers du marché</h2>
+{sections}
+  </section>
+
+  <section class="textes-lies" id="textes-communs">
+    <h2>Textes communs à tous les acteurs agréés</h2>
+    <p class="renvoi-avis">Quelle que soit la catégorie, ces textes s'appliquent
+    à l'ensemble des intervenants agréés.</p>
+    <ul class="textes-lies-liste">
+{communs}
+    </ul>
+  </section>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"Acteurs agréés du marché financier régional — {SITE_COURT}",
+                     description=ACTEURS_INTRO, corps=corps, chemin="acteurs/",
+                     base_url=base_url, jsonld=jsonld, classe="page-acteurs",
+                     script_annuaire=True)
+
+
+def page_categorie_acteurs(cle: str, groupe: list, tous: list,
+                           textes: list[Texte], releve: str,
+                           base_url: str) -> str:
+    cat = CATEGORIES[cle]
+    par_slug = {t.slug: t for t in textes}
+    actifs = [a for a in groupe if a.actif]
+    notice = "\n".join(f"<p>{e(p)}</p>" for p in cat.notice)
+    lignes = "\n".join(_ligne_annuaire(a, dans_categorie=True) for a in groupe)
+    renvois = _renvois_textes(cat.textes, par_slug, "../../textes/")
+
+    autres = "\n".join(
+        f'<a href="../{c}/">{e(CATEGORIES[c].pluriel)}</a>'
+        for c in ORDRE_CATEGORIES if c != cle and any(x.categorie == c for x in tous))
+
+    ld = {
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": f"{cat.pluriel} agréées sur le marché financier régional de l'UMOA",
+        "description": cat.role,
+        "url": f"{base_url.rstrip('/')}/acteurs/{cle}/",
+        "mainEntity": {
+            "@type": "ItemList", "numberOfItems": len(groupe),
+            "itemListElement": [
+                {"@type": "ListItem", "position": i + 1, "name": a.nom,
+                 "url": f"{base_url.rstrip('/')}/acteurs/{a.chemin}/"}
+                for i, a in enumerate(groupe)],
+        },
+    }
+
+    corps = f"""
+<div class="conteneur">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../../">Accueil</a> <span>›</span>
+    <a href="../">Acteurs agréés</a> <span>›</span>
+    <span aria-current="page">{e(cat.pluriel)}</span>
+  </nav>
+  <header class="section-entete">
+    <span class="section-icone">{icone(cat.icone)}</span>
+    <p class="surtitre">{e(cat.sigle)}</p>
+    <h1>{e(cat.pluriel)}</h1>
+    <p class="chapeau">{e(cat.role)}</p>
+    <p class="compte"><strong>{len(groupe)}</strong> inscription{'s' if len(groupe) > 1 else ''}
+    au registre, dont <strong>{len(actifs)}</strong> en activité.
+    Relevé du {date_francaise(releve)}.</p>
+  </header>
+
+  <section class="cat-notice prose">
+    <h2>Ce que recouvre le métier</h2>
+{notice}
+  </section>
+
+  <section class="textes-lies">
+    <h2>Textes applicables</h2>
+    <ul class="textes-lies-liste">
+{renvois}
+    </ul>
+    <p class="renvoi-plus"><a href="../#textes-communs">Textes communs à tous
+    les acteurs agréés</a></p>
+  </section>
+
+  <section class="annuaire">
+    <h2>{e(cat.pluriel)} au registre</h2>
+    <div class="an-cadre">
+      <table class="an-table">
+        <thead>
+          <tr><th scope="col">Dénomination</th><th scope="col">Catégorie</th>
+          <th scope="col">Pays</th><th scope="col">Agrément</th>
+          <th scope="col">Depuis</th><th scope="col">État</th></tr>
+        </thead>
+        <tbody>
+{lignes}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <nav class="cat-autres" aria-label="Autres catégories">
+    <h2>Autres catégories</h2>
+    <p>{autres}</p>
+  </nav>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"{cat.pluriel} agréées ({cat.sigle}) — {SITE_COURT}",
+                     description=f"{cat.role} {len(groupe)} inscriptions au "
+                                 f"registre de l'AMF-UMOA.",
+                     corps=corps, chemin=f"acteurs/{cle}/", base_url=base_url,
+                     jsonld=jsonld, classe="page-categorie")
+
+
+def _fiche_ligne(intitule: str, valeur: str) -> str:
+    return (f"<div class=\"fiche-ligne\"><dt>{intitule}</dt>"
+            f"<dd>{valeur}</dd></div>") if valeur else ""
+
+
+def page_acteur(a, tous: list, textes: list[Texte], releve: str,
+                base_url: str) -> str:
+    cat = a.cat
+    par_slug = {t.slug: t for t in textes}
+    lib, cls = a.statut
+
+    feminin = cat.genre == "f"
+    determinant = "une" if feminin else "un"
+    accord = "e" if feminin else ""
+    depuis = (f" depuis le {date_francaise(a.date_agrement)}"
+              if a.date_agrement else "")
+    chapeau = (f"{a.nom} est {determinant} {cat.singulier.lower()} "
+               f"inscrit{accord} au registre des acteurs agréés du Marché "
+               f"Financier Régional de l'UMOA{depuis}. {cat.role}")
+
+    identite = "".join([
+        _fiche_ligne("Catégorie",
+                     f'<a href="../">{e(cat.singulier)}</a> '
+                     f'<span class="sigle">{e(cat.sigle)}</span>'),
+        _fiche_ligne("Numéro d'agrément", e(a.agrement)),
+        _fiche_ligne("Date d'agrément", date_francaise(a.date_agrement)),
+        _fiche_ligne("Entrée sur le marché", date_francaise(a.date_entree_marche)),
+        _fiche_ligne("Constitution", date_francaise(a.date_creation)),
+        _fiche_ligne("Forme juridique", e(a.forme_juridique)),
+        _fiche_ligne("Registre du commerce", f"<span class=\"mono\">{e(a.rccm)}</span>"
+                     if a.rccm else ""),
+        _fiche_ligne("Pays du siège", e(a.pays)
+                     + (" <span class=\"hors-umoa\">hors UMOA</span>"
+                        if a.hors_umoa else "")),
+        _fiche_ligne("Siège", e(a.siege)),
+        _fiche_ligne("Boîte postale", e(a.boite_postale)),
+        _fiche_ligne("Référence au registre",
+                     f'<span class="mono">{e(a.code)}</span>' if a.code else ""),
+        _fiche_ligne("Décision d'agrément",
+                     f'<span class="mono">{e(a.decision.rsplit(".", 1)[0])}</span>'
+                     '<span class="fiche-glose">référence de la décision au '
+                     "registre&nbsp;; l'Autorité n'en publie pas le texte</span>"
+                     if a.decision else ""),
+        _fiche_ligne("Registre officiel",
+                     '<a href="https://www.amf-umoa.org/accueil/intervenant" '
+                     'rel="noopener external">Fiche à l\'AMF-UMOA</a>'),
+    ])
+
+    def _liste(valeurs, rendu) -> str:
+        return ('<ul class="fiche-valeurs">'
+                + "".join(f"<li>{rendu(v)}</li>" for v in valeurs)
+                + "</ul>") if valeurs else ""
+
+    contact = "".join([
+        _fiche_ligne("Site web",
+                     f'<a href="{e(a.site_web)}" rel="noopener nofollow external">'
+                     f'{e(a.site_web.split("//")[-1].rstrip("/"))}</a>'
+                     if a.site_web else ""),
+        _fiche_ligne("Courriel" + ("s" if len(a.courriels) > 1 else ""),
+                     _liste(a.courriels,
+                            lambda v: f'<a href="mailto:{e(v)}">{e(v)}</a>')),
+        _fiche_ligne("Téléphone" + ("s" if len(a.telephones) > 1 else ""),
+                     _liste(a.telephones, e)),
+        _fiche_ligne("Télécopie", _liste(a.fax, e)),
+    ])
+
+    liens = acteurs_homologues(a, tous)
+    bloc_liens = ""
+    if liens:
+        items = "\n".join(
+            f'<li><a href="../../{b.chemin}/">{e(b.nom)}</a>'
+            f'<span class="renvoi-objet">{e(b.cat.singulier)}</span></li>'
+            for b in liens)
+        bloc_liens = f"""
+  <section class="textes-lies">
+    <h2>Autres agréments de la même société</h2>
+    <p class="renvoi-avis">Un même établissement peut détenir plusieurs
+    agréments, chacun ouvrant un métier distinct.</p>
+    <ul class="textes-lies-liste">
+{items}
+    </ul>
+  </section>"""
+
+    renvois = _renvois_textes(cat.textes[:8], par_slug, "../../../textes/")
+
+    ld = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": a.nom,
+        "description": chapeau[:300],
+        "url": f"{base_url.rstrip('/')}/acteurs/{a.chemin}/",
+        "address": {"@type": "PostalAddress", "addressCountry": a.pays,
+                    "streetAddress": a.siege} if a.siege else None,
+        "sameAs": [a.site_web] if a.site_web else None,
+    }
+    ld = {k: v for k, v in ld.items() if v is not None}
+
+    corps = f"""
+<div class="conteneur conteneur-fiche">
+  <nav class="fil" aria-label="Fil d'Ariane">
+    <a href="../../../">Accueil</a> <span>›</span>
+    <a href="../../">Acteurs agréés</a> <span>›</span>
+    <a href="../">{e(cat.pluriel)}</a> <span>›</span>
+    <span aria-current="page">{e(a.nom)}</span>
+  </nav>
+
+  <header class="acteur-entete">
+    <p class="surtitre">{icone(cat.icone, 15)}{e(cat.singulier)}</p>
+    <h1>{e(a.nom)}</h1>
+    <p class="acteur-etat"><span class="badge {cls}">{lib}</span>
+      <span class="acteur-pays">{e(a.pays)}</span></p>
+    <p class="chapeau">{e(chapeau)}</p>
+  </header>
+
+  <section class="fiche-bloc">
+    <h2>Identification</h2>
+    <dl class="fiche-dl">
+{identite}
+    </dl>
+  </section>
+
+  {f'''<section class="fiche-bloc">
+    <h2>Coordonnées</h2>
+    <dl class="fiche-dl">
+{contact}
+    </dl>
+    <p class="fiche-note">Toutes les coordonnées publiées au registre de
+    l'Autorité sont reprises ici, sans tri&nbsp;; elles peuvent avoir changé
+    depuis le relevé.</p>
+  </section>''' if contact else ''}
+
+  <section class="textes-lies">
+    <h2>Textes applicables</h2>
+    <ul class="textes-lies-liste">
+{renvois}
+    </ul>
+    <p class="renvoi-plus"><a href="../">Notice complète de la catégorie</a></p>
+  </section>
+{bloc_liens}
+
+  <section class="fiche-source">
+    <h2>Source</h2>
+    <p>Fiche établie à partir du registre des acteurs agréés publié par
+    l'AMF-UMOA, relevé du {date_francaise(releve)}. Le recueil n'ajoute aucune
+    donnée à ce registre&nbsp;: il le met en regard des textes applicables.
+    Pour toute vérification, consulter le
+    <a href="https://www.amf-umoa.org/accueil/intervenant" rel="noopener external">registre
+    officiel de l'Autorité</a>.</p>
+  </section>
+</div>
+"""
+    jsonld = ('<script type="application/ld+json">'
+              + json.dumps(ld, ensure_ascii=False) + "</script>")
+    return page_html(titre=f"{a.nom} — {cat.sigle} agréé{accord} auprès de "
+                           f"l'AMF-UMOA — {SITE_COURT}",
+                     description=chapeau, corps=corps,
+                     chemin=f"acteurs/{a.chemin}/", base_url=base_url,
+                     jsonld=jsonld, classe="page-acteur")
+
+
+# --------------------------------------------------------------------------
 #  Index de recherche
 # --------------------------------------------------------------------------
 
-def construire_index(textes: list[Texte]) -> dict:
+def construire_index(textes: list[Texte], acteurs: list | None = None) -> dict:
     docs = []
     postings: dict[str, dict[int, int]] = defaultdict(lambda: defaultdict(int))
 
@@ -844,6 +1362,26 @@ def construire_index(textes: list[Texte]) -> dict:
                 n_jetons += 1
         longueurs.append(n_jetons)
 
+    # Les acteurs entrent dans le même index : chercher « Sirius » doit mener à
+    # la société, chercher « SGI » aux deux — les textes et les agréés. Leur
+    # chemin sert de clé ; le script de recherche les distingue au type.
+    for a in acteurs or []:
+        i = len(docs)
+        docs.append([a.chemin, a.nom, "acteur", a.date_agrement[:4],
+                     0 if a.actif else 1, a.agrement,
+                     f"{a.cat.singulier} · {a.pays}. {a.cat.role}"[:180]])
+        n_jetons = 0
+        for champ, poids in ((a.nom, 8), (a.agrement, 6), (a.cat.sigle, 5),
+                             (a.cat.pluriel, 3), (a.pays, 3),
+                             (a.forme_juridique, 1), (a.siege, 1),
+                             (a.cat.role, 1)):
+            for j in jetons(champ or ""):
+                if j in MOTS_VIDES:
+                    continue
+                postings[j][i] += poids
+                n_jetons += 1
+        longueurs.append(n_jetons)
+
     # La longueur sert à la normalisation BM25 : sans elle, un rapport annuel de
     # deux cents pages devance systématiquement l'instruction qui régit
     # précisément le sujet cherché, au seul motif qu'il cite le terme plus
@@ -851,7 +1389,7 @@ def construire_index(textes: list[Texte]) -> dict:
     for i, n in enumerate(longueurs):
         docs[i].append(n)
 
-    n = len(textes)
+    n = len(docs)
     termes = {}
     for terme, m in postings.items():
         # Un terme présent dans presque tous les documents ne discrimine rien.
@@ -895,7 +1433,8 @@ INTROS = {
 
 def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
                sortie: Path, base_url: str, inclure_pdf: bool = False,
-               racine_brute: Path | None = None) -> None:
+               racine_brute: Path | None = None,
+               fichier_acteurs: Path | None = None) -> None:
     # Le nom d'hôte est insensible à la casse, mais les URL canoniques ne
     # doivent pas pour autant différer de l'adresse réellement servie : GitHub
     # Pages sert en minuscules alors que le nom de compte peut porter des
@@ -914,10 +1453,15 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     for d in ("textes", "assets", "data", "pdf"):
         (sortie / d).mkdir(parents=True, exist_ok=True)
 
+    acteurs: list = []
+    releve = ""
+    if fichier_acteurs:
+        acteurs, releve = charger_acteurs(fichier_acteurs)
+
     # Feuilles de style et script
     ici = Path(__file__).parent / "assets"
     for nom in ("style.css", "recherche.js", "assistant.js", "pdf.js",
-                "favicon.svg"):
+                "annuaire.js", "favicon.svg"):
         if (ici / nom).exists():
             shutil.copy(ici / nom, sortie / "assets" / nom)
 
@@ -925,8 +1469,9 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     for t in textes:
         par_type[t.type_cle].append(t)
 
-    global SECTIONS_PRESENTES
+    global SECTIONS_PRESENTES, ACTEURS_PRESENTS
     SECTIONS_PRESENTES = set(par_type)
+    ACTEURS_PRESENTS = bool(acteurs)
 
     # Pages de documents
     for cle, groupe in par_type.items():
@@ -956,8 +1501,28 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
         (d / "index.html").write_text(
             page_liste(cle, ordonne, base_url, INTROS[cle]), encoding="utf-8")
 
+    # Acteurs agréés : la rubrique n'existe que si le relevé est présent.
+    groupes_acteurs = acteurs_par_categorie(acteurs) if acteurs else {}
+    if acteurs:
+        d = sortie / "acteurs"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "index.html").write_text(
+            page_acteurs(acteurs, releve, textes, base_url), encoding="utf-8")
+        for cle, groupe in groupes_acteurs.items():
+            dc = d / cle
+            dc.mkdir(parents=True, exist_ok=True)
+            (dc / "index.html").write_text(
+                page_categorie_acteurs(cle, groupe, acteurs, textes, releve,
+                                       base_url), encoding="utf-8")
+            for a in groupe:
+                da = dc / a.slug
+                da.mkdir(parents=True, exist_ok=True)
+                (da / "index.html").write_text(
+                    page_acteur(a, acteurs, textes, releve, base_url),
+                    encoding="utf-8")
+
     # Pages transverses
-    (sortie / "index.html").write_text(page_accueil(textes, base_url),
+    (sortie / "index.html").write_text(page_accueil(textes, acteurs, base_url),
                                        encoding="utf-8")
     for nom, contenu in (("chronologie", page_chronologie(textes, base_url)),
                          ("recherche", page_recherche(base_url)),
@@ -967,7 +1532,7 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
 
     # Index de recherche
     (sortie / "data" / "index-recherche.json").write_text(
-        json.dumps(construire_index(textes), ensure_ascii=False,
+        json.dumps(construire_index(textes, acteurs), ensure_ascii=False,
                    separators=(",", ":")), encoding="utf-8")
 
     # PDF originaux : copiés seulement sur demande explicite, car le corpus
@@ -988,6 +1553,10 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
             ("a-propos/", "0.5")]
     urls += [(TYPES[c][1] + "/", "0.8") for c in par_type]
     urls += [(f"textes/{t.slug}/", "0.9") for t in textes]
+    if acteurs:
+        urls += [("acteurs/", "0.8")]
+        urls += [(f"acteurs/{c}/", "0.7") for c in groupes_acteurs]
+        urls += [(f"acteurs/{a.chemin}/", "0.6") for a in acteurs]
     entrees = "\n".join(
         f"  <url><loc>{base_url.rstrip('/')}/{u}</loc>"
         f"<lastmod>{aujourdhui}</lastmod><priority>{p}</priority></url>"
@@ -1019,6 +1588,12 @@ def construire(dossier_texte: Path, manifeste: Path, pdfs: Path,
     print(f"  {len(textes)} documents, {len(urls)} URLs, "
           + (f"{copies} PDF copiés" if inclure_pdf
              else "PDF liés vers amf-umoa.org"))
+    if acteurs:
+        print(f"  {len(acteurs)} acteurs agréés en {len(groupes_acteurs)} "
+              f"catégories (relevé {releve})")
+    elif fichier_acteurs:
+        print(f"  annuaire des acteurs absent ({fichier_acteurs}) : "
+              f"rubrique non produite")
     if recopies:
         print(f"  déposés à la racine : {', '.join(recopies)}")
     print(f"  index de recherche : "
@@ -1037,9 +1612,12 @@ def main() -> int:
                     help="copier les PDF dans le site (plusieurs centaines de Mo)")
     ap.add_argument("--racine", default="racine",
                     help="dossier de fichiers à déposer tels quels à la racine")
+    ap.add_argument("--acteurs", default="acteurs/acteurs.json",
+                    help="relevé du registre des acteurs agréés de l'AMF-UMOA")
     a = ap.parse_args()
     construire(Path(a.texte), Path(a.manifeste), Path(a.pdf),
-               Path(a.sortie), a.base_url, a.inclure_pdf, Path(a.racine))
+               Path(a.sortie), a.base_url, a.inclure_pdf, Path(a.racine),
+               Path(a.acteurs))
     return 0
 
 

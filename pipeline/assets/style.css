@@ -567,11 +567,179 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
 .pied-liens a { color: var(--encre-douce); }
 .pied-mention { color: var(--encre-tenue); font-size: .8rem; margin: 0; }
 
+/* --- Acteurs agréés ----------------------------------------------------- */
+
+.badge.actif { background: var(--vert-fond); color: var(--vert-encre); }
+.badge.inactif { background: var(--papier-gris); color: var(--encre-tenue); }
+.an-table .badge.petit, .acteur-etat .badge { float: none; }
+
+.sigle {
+  font-family: var(--mono); font-size: .78rem; letter-spacing: .02em;
+  color: var(--encre-douce); white-space: nowrap;
+}
+.mono { font-family: var(--mono); font-size: .88em; }
+.hors-umoa {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--encre-tenue); border: 1px solid var(--trait-fort);
+  padding: .05rem .35rem; margin-left: .4rem;
+}
+
+/* L'annuaire est un tableau et non des cartes : ce qu'on y cherche se compare
+   colonne par colonne. */
+.annuaire { margin: 3rem 0; }
+.annuaire > h2 {
+  font-family: var(--serif); font-size: 1.5rem; margin: 0 0 1rem;
+  padding-bottom: .6rem; border-bottom: 2px solid var(--trait);
+}
+.an-filtres {
+  display: grid; grid-template-columns: 2fr 1.3fr 1.3fr auto;
+  gap: 1rem 1.4rem; align-items: end; margin: 0 0 1rem;
+  padding: 1.1rem 1.2rem; border: 1px solid var(--trait);
+  background: var(--accent-voile);
+}
+.an-champ { margin: 0; display: flex; flex-direction: column; gap: .3rem; }
+.an-champ > label {
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--encre-tenue);
+}
+.an-champ input[type="search"], .an-champ select {
+  font: inherit; font-size: .94rem; padding: .5rem .6rem; width: 100%;
+  border: 1px solid var(--trait-fort); background: var(--papier);
+  color: var(--encre); border-radius: 2px;
+}
+.an-champ input[type="search"]:focus, .an-champ select:focus {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+.an-bascule > label {
+  display: flex; align-items: center; gap: .45rem; font-size: .84rem;
+  text-transform: none; letter-spacing: 0; color: var(--encre-douce);
+  padding-bottom: .5rem;
+}
+.an-etat { font-size: .85rem; color: var(--encre-tenue); margin: 0 0 .6rem; }
+.an-cadre { overflow-x: auto; border-top: 2px solid var(--trait-fort); }
+.an-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.an-table th {
+  text-align: left; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--encre-tenue); font-weight: 600;
+  padding: .55rem .7rem .55rem 0; border-bottom: 1px solid var(--trait-fort);
+  white-space: nowrap;
+}
+.an-table td {
+  padding: .62rem .7rem .62rem 0; border-bottom: 1px solid var(--trait);
+  vertical-align: baseline;
+}
+.an-table tr:hover td { background: var(--papier-gris); }
+.an-nom a {
+  font-family: var(--serif); font-size: 1.02rem; color: var(--encre);
+  text-decoration: none; border-bottom: 1px solid var(--trait-fort);
+}
+.an-nom a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.an-pays, .an-agr, .an-date { color: var(--encre-douce); white-space: nowrap; }
+.an-agr { font-family: var(--mono); font-size: .82rem; }
+.an-note {
+  font-size: .84rem; color: var(--encre-tenue); margin: .9rem 0 0;
+  max-width: 76ch;
+}
+
+/* Les métiers : des filets, pas des encadrés. */
+.titre-rang {
+  font-family: var(--serif); font-size: 1.5rem; margin: 0 0 .4rem;
+  padding-bottom: .6rem; border-bottom: 2px solid var(--trait);
+}
+.cat-blocs { margin: 3rem 0; }
+.cat-bloc { padding: 1.15rem 0; border-bottom: 1px solid var(--trait); }
+.cat-bloc h2 {
+  font-family: var(--serif); font-size: 1.14rem; font-weight: 600;
+  margin: 0 0 .3rem; display: flex; align-items: baseline; gap: .6rem;
+  flex-wrap: wrap;
+}
+.cat-bloc h2 a { color: var(--encre); text-decoration: none; }
+.cat-bloc h2 a:hover { color: var(--accent); }
+.cat-sigle {
+  font-family: var(--mono); font-size: .74rem; font-weight: 400;
+  color: var(--encre-tenue); letter-spacing: .04em;
+}
+.cat-role { margin: 0 0 .35rem; color: var(--encre-douce); max-width: 82ch; }
+.cat-compte { margin: 0; font-size: .85rem; color: var(--encre-tenue); }
+
+.cat-notice { margin: 2.2rem 0 0; }
+.cat-notice h2 {
+  font-family: var(--serif); font-size: 1.25rem; margin: 0 0 .7rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--trait-fort);
+}
+.cat-notice p { max-width: 72ch; }
+.cat-autres {
+  margin: 2.6rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--trait);
+}
+.cat-autres h2, .fiche-source h2 {
+  font-size: .76rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--encre-tenue); margin: 0 0 .5rem; font-weight: 600;
+}
+.cat-autres p { margin: 0; display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; }
+.cat-autres a { font-size: .9rem; }
+
+/* Renvois vers les textes : une liste de références, pas un encadré. La
+   classe `.renvois` sert déjà aux pages de texte, d'où un nom distinct. */
+.textes-lies { margin: 2.6rem 0; }
+.textes-lies > h2 {
+  font-family: var(--serif); font-size: 1.25rem; margin: 0 0 .7rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--trait-fort);
+}
+.renvoi-avis { color: var(--encre-douce); margin: 0 0 .8rem; max-width: 76ch; }
+.textes-lies-liste { list-style: none; margin: 0; padding: 0; }
+.textes-lies-liste li {
+  padding: .55rem 0; border-bottom: 1px solid var(--trait);
+  display: grid; grid-template-columns: minmax(11rem, auto) minmax(0, 2fr);
+  gap: .15rem 1.4rem; align-items: baseline;
+}
+.textes-lies-liste a { font-weight: 500; }
+.renvoi-objet { font-size: .86rem; color: var(--encre-tenue); }
+.renvoi-plus { margin: .9rem 0 0; font-size: .9rem; }
+
+/* Fiche d'un acteur. */
+.conteneur-fiche { max-width: 58rem; }
+.acteur-entete { padding: .8rem 0 1.4rem; border-bottom: 2px solid var(--trait); }
+.acteur-entete h1 { margin: .2rem 0 .5rem; }
+.acteur-etat {
+  display: flex; align-items: center; gap: .7rem; margin: 0 0 .9rem;
+  flex-wrap: wrap;
+}
+.acteur-pays { font-size: .88rem; color: var(--encre-douce); }
+.fiche-bloc { margin: 2.4rem 0; }
+.fiche-bloc > h2 {
+  font-family: var(--serif); font-size: 1.25rem; margin: 0 0 .7rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--trait-fort);
+}
+.fiche-dl { margin: 0; }
+.fiche-ligne {
+  display: grid; grid-template-columns: 14rem minmax(0, 1fr);
+  gap: .2rem 1.4rem; padding: .55rem 0; border-bottom: 1px solid var(--trait);
+}
+.fiche-ligne dt {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--encre-tenue); padding-top: .12rem;
+}
+.fiche-ligne dd { margin: 0; overflow-wrap: anywhere; }
+.fiche-valeurs { list-style: none; margin: 0; padding: 0; }
+.fiche-valeurs li { padding: 0; }
+.fiche-valeurs li + li { margin-top: .2rem; }
+.fiche-glose {
+  display: block; font-size: .8rem; color: var(--encre-tenue); margin-top: .1rem;
+}
+.fiche-note, .fiche-source p {
+  font-size: .86rem; color: var(--encre-tenue); max-width: 76ch;
+}
+.fiche-note { margin: .8rem 0 0; }
+.fiche-source {
+  margin: 2.6rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--trait);
+}
+
 /* --- Adaptations ------------------------------------------------------- */
 
 @media (max-width: 960px) {
   .heros .conteneur { grid-template-columns: 1fr; }
   .heros-visuel { display: none; }
+  .an-filtres { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 780px) {
@@ -589,6 +757,11 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
   .voisin.suiv { text-align: left; }
   .chrono-liste a { grid-template-columns: 1fr; gap: .2rem; }
   .fiche { gap: 1.1rem; }
+  .an-filtres { grid-template-columns: 1fr; padding: 1rem; }
+  .textes-lies-liste li { grid-template-columns: 1fr; }
+  .fiche-ligne { grid-template-columns: 1fr; gap: .1rem; }
+  .an-table { font-size: .86rem; }
+  .an-table td, .an-table th { padding-right: .5rem; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -628,7 +801,11 @@ h2:hover .ancre, h3:hover .ancre, .ancre:focus { opacity: 1; }
   .entete, .pied, .nav-voisins, .sommaire, .actions, .fil,
   .recherche-form, .recherche-filtres, .ancre, .repere-page,
   .heros-visuel, .guilloche, .sceau, .section-icone,
-  .vignette-icone, .icone { display: none !important; }
+  .vignette-icone, .icone, .an-filtres, .an-etat,
+  .cat-autres { display: none !important; }
+  .an-cadre { overflow: visible; }
+  .an-table { font-size: 9.5pt; }
+  .an-table tr { page-break-inside: avoid; }
   body { font-size: 11pt; background: #fff; color: #000; }
   .conteneur { max-width: none; padding: 0; }
   .corps-texte { max-width: none; font-size: 11pt; line-height: 1.5; }
